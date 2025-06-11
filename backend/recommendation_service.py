@@ -1,14 +1,17 @@
 import json
 import os
 import re
+import logging
 
 # Constants
 FREELANCER_DB_PATH = "data/freelancer_database.json"
 KNOWLEDGE_BASE_DIR = "data/knowledge_base"
+MAX_EXPECTED_SCORE = 25 # Used for calculating match percentage
 
 class RecommendationService:
     def __init__(self):
-        print("Initializing RecommendationService...")
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("Initializing RecommendationService...")
         self.freelancers = self._load_freelancer_database()
         self.knowledge_base_articles = self._list_kb_articles()
         # Simple keyword lists for matching
@@ -16,27 +19,27 @@ class RecommendationService:
             'payment', 'dispute', 'hire', 'find talent', 'post job', 
             'profile', 'account', 'getting started', 'best practice'
         ]
-        print("RecommendationService initialized successfully.")
+        self.logger.info("RecommendationService initialized successfully.")
 
     def _load_freelancer_database(self):
         if not os.path.exists(FREELANCER_DB_PATH):
-            print(f"Warning: Freelancer database not found at {FREELANCER_DB_PATH}")
+            self.logger.warning(f"Freelancer database not found at {FREELANCER_DB_PATH}. Returning empty list.")
             return []
         try:
             with open(FREELANCER_DB_PATH, 'r') as f:
                 return json.load(f)
         except Exception as e:
-            print(f"Error loading freelancer database: {e}")
+            self.logger.error(f"Error loading freelancer database from {FREELANCER_DB_PATH}: {e}", exc_info=True)
             return []
 
     def _list_kb_articles(self):
         if not os.path.isdir(KNOWLEDGE_BASE_DIR):
-            print(f"Warning: Knowledge base directory not found at {KNOWLEDGE_BASE_DIR}")
+            self.logger.warning(f"Knowledge base directory not found at {KNOWLEDGE_BASE_DIR}. Returning empty list.")
             return []
         try:
             return [f for f in os.listdir(KNOWLEDGE_BASE_DIR) if f.endswith('.md')]
         except Exception as e:
-            print(f"Error listing knowledge base articles: {e}")
+            self.logger.error(f"Error listing knowledge base articles from {KNOWLEDGE_BASE_DIR}: {e}", exc_info=True)
             return []
 
     def _extract_keywords(self, text):
@@ -44,39 +47,51 @@ class RecommendationService:
         text = text.lower()
         # Remove punctuation and split into words
         words = re.findall(r'\b\w+\b', text)
-        # Could add more sophisticated NLP here (e.g., stemming, stop word removal)
-        return set(words)
+                # Simple stop word list
+        stop_words = set(['a', 'an', 'the', 'in', 'on', 'at', 'for', 'to', 'of', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'is', 'are', 'was', 'were', 'and', 'or', 'but', 'if', 'so', 'that', 'about', 'with', 'from', 'into', 'during', 'including', 'unless', 'while', 'as', 'until', 'up', 'down', 'out', 'through', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now'])
+        return set(word for word in words if word not in stop_words)
 
-    def get_recommendations(self, query_history, current_query=None, k_freelancers=3, k_articles=2):
+    def get_recommendations(self, chat_history, k_freelancers=3, k_articles=2):
         """
-        Generates recommendations based on query history and current query.
-        query_history: A list of past query strings.
-        current_query: The most recent query string (optional).
+        Generates recommendations based on the full conversation history.
+        chat_history: A list of message objects, each with 'role' and 'content'.
         """
-        print(f"Generating recommendations for history: {query_history}, current: {current_query}")
+        self.logger.info(f"Generating recommendations based on chat history of length {len(chat_history)}.")
         freelancer_recs = []
         article_recs = []
 
-        all_queries_text = " ".join(query_history)
-        if current_query:
-            all_queries_text += " " + current_query
+        if not chat_history:
+            return {"freelancers": [], "articles": []}
+
+        # Combine content from both 'user' and 'assistant' for a richer context
+        full_conversation_text = " ".join([msg['content'] for msg in chat_history])
         
-        query_keywords = self._extract_keywords(all_queries_text)
-        print(f"Extracted query keywords: {query_keywords}")
+        query_keywords = self._extract_keywords(full_conversation_text)
+        self.logger.debug(f"Extracted query keywords for recommendations: {query_keywords}")
 
         # 1. Recommend Freelancers based on skills and title
         if self.freelancers:
             scored_freelancers = []
             for freelancer in self.freelancers:
                 score = 0
-                match_details = {"skills": [], "title": [], "bio": []}
+                match_details = {"specialties": [], "skills": [], "title": [], "bio": []}
 
                 # Extract keywords from different fields
-                skill_keywords = self._extract_keywords(" ".join(freelancer.get("skills", [])).lower())
+                specialty_keywords = self._extract_keywords(" ".join(freelancer.get("specialties", [])).lower())
+                
+                # Extract skill names from the list of skill objects
+                skill_names = [skill.get('name', '') for skill in freelancer.get("skills", [])]
+                skill_keywords = self._extract_keywords(" ".join(skill_names).lower())
+                
                 title_keywords = self._extract_keywords(freelancer.get("title", "").lower())
                 bio_keywords = self._extract_keywords(freelancer.get("bio", "").lower())
 
                 # Weighted scoring
+                common_specialties = query_keywords.intersection(specialty_keywords)
+                score += len(common_specialties) * 4 # Highest weight for specialty match
+                if common_specialties:
+                    match_details["specialties"] = list(common_specialties)
+
                 common_skills = query_keywords.intersection(skill_keywords)
                 score += len(common_skills) * 3  # High weight for direct skill match
                 if common_skills:
@@ -93,19 +108,22 @@ class RecommendationService:
                     match_details["bio"] = list(common_bio)
                 
                 if score > 0:
+                    match_percentage = min(int((score / MAX_EXPECTED_SCORE) * 100), 100)
+                    self.logger.debug(f"Freelancer '{freelancer.get('name')}' scored {score}, percentage: {match_percentage}%")
                     scored_freelancers.append({
                         "freelancer": freelancer, 
                         "score": score, 
+                        "match_percentage": match_percentage,
                         "match_details": match_details
                     })
             
             # Sort by score and take top k
             scored_freelancers.sort(key=lambda x: x["score"], reverse=True)
             freelancer_recs = scored_freelancers[:k_freelancers]
-            print(f"Found {len(freelancer_recs)} freelancer recommendations.")
+            self.logger.info(f"Found {len(freelancer_recs)} freelancer recommendations matching criteria.")
 
         # 2. Recommend Knowledge Base Articles
-        is_platform_query = any(pk in all_queries_text.lower() for pk in self.platform_keywords)
+        is_platform_query = any(pk in full_conversation_text.lower() for pk in self.platform_keywords)
         
         if is_platform_query and self.knowledge_base_articles:
             scored_articles = []
@@ -124,7 +142,7 @@ class RecommendationService:
             
             scored_articles.sort(key=lambda x: x["score"], reverse=True)
             article_recs = scored_articles[:k_articles]
-            print(f"Found {len(article_recs)} article recommendations.")
+            self.logger.info(f"Found {len(article_recs)} article recommendations matching criteria.")
 
         return {
             "freelancers": freelancer_recs,
