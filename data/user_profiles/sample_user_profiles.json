@@ -1,0 +1,55 @@
+[
+  {
+    "user_id": "client001",
+    "name": "Innovatech Solutions",
+    "type": "client",
+    "query_history": [
+      "How do I post a job for a UX designer?",
+      "What are the typical rates for senior Python developers?",
+      "How does Shakers handle payment disputes?",
+      "Find me a freelance graphic designer with experience in branding."
+    ]
+  },
+  {
+    "user_id": "freelancer001",
+    "name": "Alice Wonderland",
+    "type": "freelancer",
+    "skills": ["Content Writing", "SEO Optimization", "Blog Management"],
+    "query_history": [
+      "How can I improve my freelancer profile?",
+      "What are the service fees for freelancers?",
+      "Best way to write a proposal for a writing gig",
+      "How to withdraw earnings?"
+    ]
+  },
+  {
+    "user_id": "client002",
+    "name": "Global Marketing Inc.",
+    "type": "client",
+    "query_history": [
+      "I need a social media manager with 5 years of experience.",
+      "What is the process for hiring multiple freelancers for one project?",
+      "Are there any tools for time tracking hourly projects?"
+    ]
+  },
+  {
+    "user_id": "freelancer002",
+    "name": "Bob The Builder",
+    "type": "freelancer",
+    "skills": ["Mobile App Development", "Android", "iOS", "Flutter"],
+    "query_history": [
+      "How to find long-term projects?",
+      "Tips for negotiating rates with clients.",
+      "What's the best way to showcase my app development portfolio?"
+    ]
+  },
+  {
+    "user_id": "client003",
+    "name": "EduGrowth Startups",
+    "type": "client",
+    "query_history": [
+      "How do payments work for fixed-price projects?",
+      "Can I re-hire a freelancer I liked?"
+    ]
+  }
+]
