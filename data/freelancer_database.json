@@ -1,0 +1,58 @@
+[
+  {
+    "id": "freelancer-001",
+    "name": "Elena Rodriguez",
+    "title": "Senior Full Stack Developer",
+    "skills": ["Python", "JavaScript", "React", "Node.js", "AWS", "Docker", "PostgreSQL"],
+    "bio": "A seasoned full stack developer with over 8 years of experience building scalable web applications from the ground up. Passionate about clean code, robust architecture, and leveraging cloud technologies to solve complex problems.",
+    "experience_years": 8,
+    "hourly_rate_usd": 95,
+    "availability": "Full-time",
+    "portfolio_url": "https://example.com/elena-rodriguez",
+    "profile_image_url": "",
+    "location": "Remote (Spain)",
+    "languages": ["Spanish", "English"]
+  },
+  {
+    "id": "freelancer-002",
+    "name": "Ben Carter",
+    "title": "UX/UI Designer & Researcher",
+    "skills": ["Figma", "Adobe XD", "User Research", "Wireframing", "Prototyping", "Design Systems", "HTML/CSS"],
+    "bio": "Creative and detail-oriented UX/UI designer focused on creating intuitive and beautiful user experiences. I bridge the gap between user needs and business goals through research, strategy, and high-fidelity design.",
+    "experience_years": 6,
+    "hourly_rate_usd": 80,
+    "availability": "Part-time - 20hrs/week",
+    "portfolio_url": "https://example.com/ben-carter",
+    "profile_image_url": "",
+    "location": "Remote (UK)",
+    "languages": ["English"]
+  },
+  {
+    "id": "freelancer-003",
+    "name": "Aisha Khan",
+    "title": "AI & Machine Learning Engineer",
+    "skills": ["Python", "TensorFlow", "PyTorch", "Scikit-learn", "NLP", "Computer Vision", "Pandas"],
+    "bio": "Machine Learning Engineer specializing in Natural Language Processing and recommendation systems. I help businesses unlock the value of their data by building intelligent AI models that drive engagement and growth.",
+    "experience_years": 5,
+    "hourly_rate_usd": 110,
+    "availability": "Available from 2025-08-01",
+    "portfolio_url": "https://example.com/aisha-khan",
+    "profile_image_url": "",
+    "location": "Remote (Canada)",
+    "languages": ["English", "French"]
+  },
+  {
+    "id": "freelancer-004",
+    "name": "Marco Rossi",
+    "title": "Mobile App Developer (iOS & Android)",
+    "skills": ["Swift", "Kotlin", "React Native", "Flutter", "Firebase", "API Integration"],
+    "bio": "Dedicated mobile developer with a track record of delivering high-quality, user-friendly applications for both iOS and Android platforms. Proficient in native development as well as cross-platform frameworks.",
+    "experience_years": 7,
+    "hourly_rate_usd": 90,
+    "availability": "Full-time",
+    "portfolio_url": "https://example.com/marco-rossi",
+    "profile_image_url": "",
+    "location": "Remote (Italy)",
+    "languages": ["Italian", "English"]
+  }
+]

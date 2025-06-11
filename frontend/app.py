@@ -18,35 +18,58 @@ st.markdown("""
 <style>
     /* Main container and text */
     .stApp {
-        background-color: #FFFFFF; /* White background */
+        background-color: #f9f9f9; /* Light grey background */
     }
-    .st-emotion-cache-16txtl3, .st-emotion-cache-10trblm, h1, h2, h3 {
+    .st-emotion-cache-16txtl3, .st-emotion-cache-10trblm, h1, h2, h3, .st-emotion-cache-163ttbj h3 {
         color: #1a1a1a; /* Dark grey for text */
     }
     /* Buttons */
     .stButton>button {
-        background-color: #0070f3; /* A vibrant blue, common in modern tech UIs */
+        background-color: #0052cc; /* Professional blue */
         color: white;
         border-radius: 8px;
         border: none;
         padding: 10px 20px;
     }
     .stButton>button:hover {
-        background-color: #005bb5;
+        background-color: #0041a3;
     }
     /* Text Input */
     .stTextInput>div>div>input {
-        background-color: #f0f2f5; /* Light grey for input background */
+        background-color: #ffffff;
+        border: 1px solid #dcdcdc;
         border-radius: 8px;
     }
     /* Sidebar */
     .st-emotion-cache-163ttbj {
-        background-color: #fafafa; /* Slightly off-white for sidebar */
+        background-color: #f0f2f5; /* Lighter grey for sidebar */
     }
-    /* Expander for sources */
-    .st-emotion-cache-p5msec {
+    /* Recommendation Card Styling */
+    .freelancer-card {
         border: 1px solid #e6e6e6;
         border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+        background-color: #ffffff;
+    }
+    .freelancer-card h4 {
+        margin-bottom: 2px;
+        color: #1a1a1a;
+        font-size: 1.1em;
+    }
+    .freelancer-card .title {
+        font-size: 0.9em;
+        color: #555;
+        margin-bottom: 12px;
+    }
+    .freelancer-card .details {
+        font-size: 0.9em;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    .freelancer-card .matched-on {
+        font-size: 0.85em;
+        color: #0052cc; /* Blue accent for matched skills */
     }
 </style>
 """, unsafe_allow_html=True)
@@ -185,13 +208,20 @@ with st.sidebar:
                 st.subheader("Suggested Freelancers")
                 for rec in freelancers:
                     freelancer = rec.get('freelancer', {})
-                    st.markdown(f"**{freelancer.get('name', 'N/A')}** ({freelancer.get('title', 'N/A')})")
-                    skills_preview = ", ".join(freelancer.get('skills', [])[:3])
-                    if skills_preview:
-                        st.caption(f"Skills: {skills_preview}...")
-                    if rec.get('matched_skills'):
-                         st.caption(f"_Matches: {', '.join(rec.get('matched_skills'))}_ ")
-                    st.markdown("---") # Visually separates freelancer entries
+                    match_details = rec.get('match_details', {})
+                    matched_skills = match_details.get('skills', [])
+                    
+                    st.markdown(f"""
+                    <div class="freelancer-card">
+                        <h4>{freelancer.get('name', 'N/A')}</h4>
+                        <div class="title">{freelancer.get('title', 'N/A')}</div>
+                        <div class="details">
+                            <strong>Rate:</strong> ${freelancer.get('hourly_rate_usd', 'N/A')}/hr<br>
+                            <strong>Availability:</strong> {freelancer.get('availability', 'N/A')}
+                        </div>
+                        {'<div class="matched-on"><b>Matched on:</b> ' + ', '.join(matched_skills) + '</div>' if matched_skills else ''}
+                    </div>
+                    """, unsafe_allow_html=True)
             
             if articles:
                 st.subheader("Relevant Articles")

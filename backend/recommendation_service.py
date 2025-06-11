@@ -3,13 +3,13 @@ import os
 import re
 
 # Constants
-USER_PROFILES_PATH = "data/user_profiles/sample_user_profiles.json"
+FREELANCER_DB_PATH = "data/freelancer_database.json"
 KNOWLEDGE_BASE_DIR = "data/knowledge_base"
 
 class RecommendationService:
     def __init__(self):
         print("Initializing RecommendationService...")
-        self.user_profiles = self._load_user_profiles()
+        self.freelancers = self._load_freelancer_database()
         self.knowledge_base_articles = self._list_kb_articles()
         # Simple keyword lists for matching
         self.platform_keywords = [
@@ -18,17 +18,15 @@ class RecommendationService:
         ]
         print("RecommendationService initialized successfully.")
 
-    def _load_user_profiles(self):
-        if not os.path.exists(USER_PROFILES_PATH):
-            print(f"Warning: User profiles not found at {USER_PROFILES_PATH}")
+    def _load_freelancer_database(self):
+        if not os.path.exists(FREELANCER_DB_PATH):
+            print(f"Warning: Freelancer database not found at {FREELANCER_DB_PATH}")
             return []
         try:
-            with open(USER_PROFILES_PATH, 'r') as f:
-                data = json.load(f)
-                # We are interested in the 'freelancers' list from the sample data
-                return data.get("freelancers", []) 
+            with open(FREELANCER_DB_PATH, 'r') as f:
+                return json.load(f)
         except Exception as e:
-            print(f"Error loading user profiles: {e}")
+            print(f"Error loading freelancer database: {e}")
             return []
 
     def _list_kb_articles(self):
@@ -66,20 +64,40 @@ class RecommendationService:
         query_keywords = self._extract_keywords(all_queries_text)
         print(f"Extracted query keywords: {query_keywords}")
 
-        # 1. Recommend Freelancers based on skills
-        if self.user_profiles:
+        # 1. Recommend Freelancers based on skills and title
+        if self.freelancers:
             scored_freelancers = []
-            for freelancer in self.user_profiles:
+            for freelancer in self.freelancers:
                 score = 0
-                freelancer_skills_text = " ".join(freelancer.get("skills", [])) + " " + freelancer.get("bio", "")
-                freelancer_keywords = self._extract_keywords(freelancer_skills_text.lower())
-                
-                # Simple keyword matching for skills
-                common_skills = query_keywords.intersection(freelancer_keywords)
-                score += len(common_skills)
+                match_details = {"skills": [], "title": [], "bio": []}
+
+                # Extract keywords from different fields
+                skill_keywords = self._extract_keywords(" ".join(freelancer.get("skills", [])).lower())
+                title_keywords = self._extract_keywords(freelancer.get("title", "").lower())
+                bio_keywords = self._extract_keywords(freelancer.get("bio", "").lower())
+
+                # Weighted scoring
+                common_skills = query_keywords.intersection(skill_keywords)
+                score += len(common_skills) * 3  # High weight for direct skill match
+                if common_skills:
+                    match_details["skills"] = list(common_skills)
+
+                common_title = query_keywords.intersection(title_keywords)
+                score += len(common_title) * 2  # Medium weight for title match
+                if common_title:
+                    match_details["title"] = list(common_title)
+
+                common_bio = query_keywords.intersection(bio_keywords)
+                score += len(common_bio) * 1  # Low weight for bio match
+                if common_bio:
+                    match_details["bio"] = list(common_bio)
                 
                 if score > 0:
-                    scored_freelancers.append({"freelancer": freelancer, "score": score, "matched_skills": list(common_skills)})
+                    scored_freelancers.append({
+                        "freelancer": freelancer, 
+                        "score": score, 
+                        "match_details": match_details
+                    })
             
             # Sort by score and take top k
             scored_freelancers.sort(key=lambda x: x["score"], reverse=True)
