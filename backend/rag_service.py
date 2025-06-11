@@ -40,47 +40,66 @@ class RAGService:
             return pickle.load(f)
 
     def _get_query_embedding(self, query):
-        return genai.embed_content(model=self.embedding_model, content=query, task_type="RETRIEVAL_QUERY")['embedding']
+        print(f"Generating embedding for query: '{query[:100]}...'")
+        try:
+            result = genai.embed_content(model=self.embedding_model, content=query, task_type="RETRIEVAL_QUERY")
+            print("Query embedding generated successfully.")
+            return result['embedding']
+        except Exception as e:
+            print(f"Error generating query embedding: {e}")
+            raise # Re-raise the exception to be caught by the caller
 
     def search_knowledge_base(self, query, k=5):
         """Searches the vector store for the most relevant document chunks."""
-        query_embedding = self._get_query_embedding(query)
-        query_vector = np.array([query_embedding])
-        
-        # D: distances, I: indices
-        distances, indices = self.index.search(query_vector, k)
-        
-        # Filter results based on a distance threshold to manage uncertainty
-        # This threshold is heuristic and may need tuning.
-        # A lower L2 distance means higher similarity.
-        threshold = 1.0 
-        results = []
-        for i in range(len(indices[0])):
-            if distances[0][i] < threshold:
-                chunk_index = indices[0][i]
-                results.append(self.doc_chunks[chunk_index])
-        
-        return results
+        try:
+            query_embedding = self._get_query_embedding(query)
+            query_vector = np.array([query_embedding])
+            
+            print(f"Searching FAISS index with query vector of shape: {query_vector.shape}")
+            distances, indices = self.index.search(query_vector, k)
+            print(f"FAISS search completed. Distances: {distances}, Indices: {indices}")
+            
+            threshold = 1.0 
+            results = []
+            if indices.size > 0:
+                for i in range(len(indices[0])):
+                    if distances[0][i] < threshold:
+                        chunk_index = indices[0][i]
+                        if 0 <= chunk_index < len(self.doc_chunks):
+                            results.append(self.doc_chunks[chunk_index])
+                        else:
+                            print(f"Warning: Invalid chunk index {chunk_index} from FAISS search.")
+            print(f"Found {len(results)} relevant chunks after filtering by threshold.")
+            return results
+        except Exception as e:
+            print(f"Error during knowledge base search: {e}")
+            return [] # Return empty list on error to allow graceful failure
 
     def answer_query(self, query):
         """Answers a user query using the RAG pipeline."""
-        print(f"Received query: {query}")
+        print(f"RAGService: Received query: '{query}'")
         relevant_chunks = self.search_knowledge_base(query)
 
         if not relevant_chunks:
-            print("No relevant information found.")
+            print("RAGService: No relevant information found after search.")
             return {
-                "answer": "I'm sorry, but I don't have enough information to answer that question. Please try asking in a different way.",
+                "answer": "I'm sorry, but I don't have enough information to answer that question based on the available documents. Please try asking in a different way or about a topic covered in our knowledge base.",
                 "sources": []
             }
+
+        print(f"RAGService: Found {len(relevant_chunks)} relevant chunks.")
+        for i, chunk in enumerate(relevant_chunks):
+            print(f"  Chunk {i+1} (ID: {chunk.get('id', 'N/A')} from {chunk.get('metadata', {}).get('doc_name', 'N/A')}): {chunk.get('text', '')[:100]}...")
 
         context = "\n\n---\n\n".join([chunk['text'] for chunk in relevant_chunks])
         sources = sorted(list(set([chunk['metadata']['doc_name'] for chunk in relevant_chunks])))
 
+        print(f"RAGService: Context prepared for LLM (length: {len(context)} chars). Sources: {sources}")
+
         prompt = f"""
         You are an expert assistant for the Shakers platform. Your task is to answer the user's question based *only* on the provided context.
-        If the context does not contain the answer, state that you don't have enough information.
-        Be clear, concise, and helpful. Cite the sources used in your answer.
+        If the context does not contain the answer, state that you don't have enough information from the provided documents.
+        Be clear, concise, and helpful. If you use information from the context, mention the source document names listed if relevant (e.g., 'According to 01_getting_started.md...').
 
         CONTEXT:
         {context}
@@ -90,18 +109,27 @@ class RAGService:
 
         ANSWER:
         """
+        print(f"RAGService: Prompt prepared for LLM:\n{prompt[:500]}...\n")
 
         try:
-            print("Generating response from LLM...")
+            print("RAGService: Generating response from LLM...")
+            # Note: Consider adding safety_settings if needed, e.g.,
+            # response = self.llm.generate_content(prompt, safety_settings={'HARASSMENT': 'BLOCK_NONE'}) 
+            # Check Gemini API documentation for appropriate settings.
             response = self.llm.generate_content(prompt)
+            generated_text = response.text
+            print(f"RAGService: LLM response received: {generated_text[:200]}...")
             return {
-                "answer": response.text,
+                "answer": generated_text,
                 "sources": sources
             }
         except Exception as e:
-            print(f"Error generating content from LLM: {e}")
+            print(f"RAGService: Error generating content from LLM: {e}")
+            # Log the full error, potentially including response.prompt_feedback if available
+            if hasattr(response, 'prompt_feedback'):
+                print(f"RAGService: LLM prompt feedback: {response.prompt_feedback}")
             return {
-                "answer": "I encountered an error while trying to generate a response. Please try again later.",
+                "answer": f"I encountered an error while trying to generate a response. Details: {str(e)}",
                 "sources": []
             }
 
