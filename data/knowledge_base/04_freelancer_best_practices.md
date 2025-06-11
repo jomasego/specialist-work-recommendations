@@ -1,6 +1,6 @@
-# Freelancer Best Practices on Shakers
+# Freelancer Best Practices on Makers
 
-Succeeding as a freelancer on Shakers involves more than just skills. Here are some best practices:
+Succeeding as a freelancer on Makers involves more than just skills. Here are some best practices:
 
 ## 1. Create a Stellar Profile
 
@@ -23,7 +23,7 @@ Succeeding as a freelancer on Shakers involves more than just skills. Here are s
 *   **Understand Expectations:** Before starting, make sure you and the client are aligned on the scope, deliverables, and deadlines.
 *   **Meet Deadlines:** Deliver work on time. If you anticipate a delay, inform the client as early as possible with a clear explanation.
 *   **Quality Work:** Always strive to deliver your best work. High-quality work leads to good feedback and repeat clients.
-*   **Use Shakers Tools:** Utilize platform features for time tracking (for hourly projects), file sharing, and communication.
+*   **Use Makers Tools:** Utilize platform features for time tracking (for hourly projects), file sharing, and communication.
 
 ## 4. After Project Completion
 
@@ -36,6 +36,6 @@ Succeeding as a freelancer on Shakers involves more than just skills. Here are s
 *   **Be Professional and Courteous:** In all your interactions.
 *   **Manage Your Time Effectively:** Especially if you're juggling multiple projects.
 *   **Stay Updated:** Keep learning and improving your skills.
-*   **Understand Platform Policies:** Familiarize yourself with Shakers' terms of service and dispute resolution processes.
+*   **Understand Platform Policies:** Familiarize yourself with Makers' terms of service and dispute resolution processes.
 
-By following these best practices, you can build a strong reputation, attract more clients, and thrive on the Shakers platform.
+By following these best practices, you can build a strong reputation, attract more clients, and thrive on the Makers platform.

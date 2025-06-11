@@ -1,12 +1,12 @@
-# Getting Started with Shakers Platform
+# Getting Started with Makers Platform
 
-Welcome to Shakers, the premier platform for connecting innovative projects with top-tier freelance talent!
+Welcome to Makers, the premier platform for connecting innovative projects with top-tier freelance talent!
 
 ## Creating Your Account
 
 Signing up is easy and free!
 
-1.  **Visit our Homepage:** Go to [ShakersWorks.com](https://www.shakersworks.com/).
+1.  **Visit our Homepage:** Go to [MakersWorks.com](https://www.shakersworks.com/).
 2.  **Click 'Sign Up':** You'll find the button in the top-right corner.
 3.  **Choose Your Role:** Are you a client looking to hire, or a freelancer looking for work?
     *   **Client:** You'll be asked for company details (optional) and your primary interests.
@@ -15,7 +15,7 @@ Signing up is easy and free!
 
 ## Setting Up Your Profile
 
-A complete profile is key to success on Shakers.
+A complete profile is key to success on Makers.
 
 ### For Clients
 

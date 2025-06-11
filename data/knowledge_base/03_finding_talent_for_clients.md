@@ -1,6 +1,6 @@
-# Finding the Perfect Talent on Shakers: A Guide for Clients
+# Finding the Perfect Talent on Makers: A Guide for Clients
 
-Shakers makes it easy to connect with skilled freelancers for your projects.
+Makers makes it easy to connect with skilled freelancers for your projects.
 
 ## 1. Posting a Job
 
@@ -22,7 +22,7 @@ Proactively find talent that meets your needs.
 *   **Review Profiles:** Carefully examine freelancer profiles:
     *   **Portfolio:** Look at their past work samples.
     *   **Skills & Endorsements:** Check their listed skills and any endorsements from previous clients.
-    *   **Work History & Feedback:** Read reviews and ratings from past projects on Shakers.
+    *   **Work History & Feedback:** Read reviews and ratings from past projects on Makers.
     *   **Availability:** Check their stated availability.
 *   **Invite to Apply:** If you find a promising freelancer, you can invite them directly to apply to your job posting or send them a message to discuss your project.
 
@@ -41,14 +41,14 @@ Once freelancers start applying to your job post:
 
 For complex projects or if you want to know the freelancer better:
 
-*   **Use Shakers Messaging:** Keep communication on the platform.
+*   **Use Makers Messaging:** Keep communication on the platform.
 *   **Prepare Questions:** Ask about their approach to your project, their experience with similar tasks, and their working style.
 *   **Assess Communication Skills:** How responsive and clear are they?
 
 ## 5. Hiring and Starting the Project
 
-*   **Send an Offer:** Once you've chosen a freelancer, send them an official offer through the Shakers platform. This will include the agreed scope, price, and terms.
+*   **Send an Offer:** Once you've chosen a freelancer, send them an official offer through the Makers platform. This will include the agreed scope, price, and terms.
 *   **Fund Escrow (Fixed-Price):** For fixed-price projects, you'll fund the first milestone or the full project amount into escrow.
 *   **Communication is Key:** Maintain regular communication with your freelancer throughout the project.
 
-By following these steps, you'll be well on your way to finding and hiring the perfect talent for your needs on Shakers.
+By following these steps, you'll be well on your way to finding and hiring the perfect talent for your needs on Makers.

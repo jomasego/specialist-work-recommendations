@@ -5,6 +5,10 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 import numpy as np
 
+class RAGServiceError(Exception):
+    """Custom exception for RAGService errors."""
+    pass
+
 # Constants
 INDEX_PATH = "data/vector_store.faiss"
 DOC_CHUNKS_PATH = "data/doc_chunks.pkl"
@@ -14,7 +18,7 @@ class RAGService:
         print("Initializing RAGService...")
         self._load_dotenv_and_configure_api()
         self.embedding_model = "models/embedding-001"
-        self.llm = genai.GenerativeModel('gemini-pro')
+        self.llm = genai.GenerativeModel('gemini-1.5-flash-latest')
         self.index = self._load_faiss_index()
         self.doc_chunks = self._load_doc_chunks()
         print("RAGService initialized successfully.")
@@ -97,7 +101,7 @@ class RAGService:
         print(f"RAGService: Context prepared for LLM (length: {len(context)} chars). Sources: {sources}")
 
         prompt = f"""
-        You are an expert assistant for the Shakers platform. Your task is to answer the user's question based *only* on the provided context.
+        You are an expert assistant for the Makers platform. Your task is to answer the user's question based *only* on the provided context.
         If the context does not contain the answer, state that you don't have enough information from the provided documents.
         Be clear, concise, and helpful. If you use information from the context, mention the source document names listed if relevant (e.g., 'According to 01_getting_started.md...').
 
@@ -125,11 +129,9 @@ class RAGService:
             }
         except Exception as e:
             print(f"RAGService: Error generating content from LLM: {e}")
-            # Log the full error, potentially including response.prompt_feedback if available
-            if hasattr(response, 'prompt_feedback'):
-                print(f"RAGService: LLM prompt feedback: {response.prompt_feedback}")
+            # The 'response' object may not exist if the API call itself fails, so we cannot check for prompt_feedback.
             return {
-                "answer": f"I encountered an error while trying to generate a response. Details: {str(e)}",
+                "answer": f"I encountered an error while trying to generate a response. The API call failed. Details: {str(e)}",
                 "sources": []
             }
 

@@ -1,11 +1,11 @@
-# How Payments Work on Shakers
+# How Payments Work on Makers
 
 We aim for a transparent and secure payment system for both clients and freelancers.
 
 ## For Clients
 
 1.  **Funding a Project:**
-    *   **Fixed-Price Projects:** You fund the project fully into an escrow account when you hire a freelancer. Funds are held securely by Shakers until you approve the work.
+    *   **Fixed-Price Projects:** You fund the project fully into an escrow account when you hire a freelancer. Funds are held securely by Makers until you approve the work.
     *   **Hourly Projects:** You'll typically add a payment method and will be billed weekly based on the hours logged by the freelancer and approved by you.
 2.  **Milestones (Fixed-Price):** For larger projects, it's recommended to break down the work into milestones. You fund each milestone, and release payment upon its successful completion and your approval.
 3.  **Releasing Payments:** Once a freelancer submits work or a milestone, you review it. If satisfied, you release the payment from escrow. If not, you can request revisions or, in rare cases, raise a dispute.
@@ -14,10 +14,10 @@ We aim for a transparent and secure payment system for both clients and freelanc
 ## For Freelancers
 
 1.  **Getting Paid:**
-    *   **Fixed-Price Projects:** Once the client approves your submitted work or milestone, the funds are released from escrow to your Shakers account balance.
-    *   **Hourly Projects:** Hours logged via our time-tracking app (if applicable) are reviewed by the client. Approved hours are paid out from the client's billing method to your Shakers balance weekly.
-2.  **Service Fees:** Shakers charges a service fee on freelancers' earnings. This fee is typically a percentage of the project value and may vary based on your lifetime billings with a specific client (e.g., 20% for the first $500, 10% for $500-$10,000, 5% thereafter).
-3.  **Withdrawal Methods:** You can withdraw your earnings from your Shakers account balance using several methods:
+    *   **Fixed-Price Projects:** Once the client approves your submitted work or milestone, the funds are released from escrow to your Makers account balance.
+    *   **Hourly Projects:** Hours logged via our time-tracking app (if applicable) are reviewed by the client. Approved hours are paid out from the client's billing method to your Makers balance weekly.
+2.  **Service Fees:** Makers charges a service fee on freelancers' earnings. This fee is typically a percentage of the project value and may vary based on your lifetime billings with a specific client (e.g., 20% for the first $500, 10% for $500-$10,000, 5% thereafter).
+3.  **Withdrawal Methods:** You can withdraw your earnings from your Makers account balance using several methods:
     *   Direct Bank Transfer (ACH/SEPA)
     *   PayPal
     *   Payoneer

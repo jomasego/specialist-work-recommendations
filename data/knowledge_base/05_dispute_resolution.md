@@ -1,6 +1,6 @@
-# Dispute Resolution on Shakers
+# Dispute Resolution on Makers
 
-While we hope all projects go smoothly, disagreements can sometimes arise. Shakers provides a dispute resolution process to help clients and freelancers resolve issues fairly.
+While we hope all projects go smoothly, disagreements can sometimes arise. Makers provides a dispute resolution process to help clients and freelancers resolve issues fairly.
 
 ## When to Raise a Dispute
 
@@ -18,7 +18,7 @@ A dispute can be raised if:
 
 ## Before Raising a Dispute
 
-**Communication is key!** We strongly encourage both parties to try and resolve the issue directly through Shakers messaging first.
+**Communication is key!** We strongly encourage both parties to try and resolve the issue directly through Makers messaging first.
 
 1.  **Clearly state your concerns** to the other party.
 2.  **Provide specific examples** or evidence.
@@ -28,7 +28,7 @@ Many issues can be resolved through open and honest communication.
 
 ## How to Raise a Dispute
 
-If direct communication doesn't resolve the issue, you can initiate a formal dispute through the Shakers platform:
+If direct communication doesn't resolve the issue, you can initiate a formal dispute through the Makers platform:
 
 1.  Go to the specific project page.
 2.  Find the 'Dispute' or 'Help' section related to that project.
@@ -40,7 +40,7 @@ If direct communication doesn't resolve the issue, you can initiate a formal dis
 ## The Dispute Process
 
 1.  **Notification:** The other party will be notified that a dispute has been filed and will have a chance to respond.
-2.  **Mediation (Optional but Encouraged):** A Shakers dispute specialist may initially try to mediate between both parties to reach a mutual agreement.
+2.  **Mediation (Optional but Encouraged):** A Makers dispute specialist may initially try to mediate between both parties to reach a mutual agreement.
 3.  **Evidence Review:** The dispute specialist will review all evidence submitted by both the client and the freelancer. They may ask for additional information or clarification.
 4.  **Decision:** Based on the evidence and our platform policies, the dispute specialist will make a decision. This decision may include:
     *   A full or partial refund to the client.
@@ -48,11 +48,11 @@ If direct communication doesn't resolve the issue, you can initiate a formal dis
     *   Project cancellation.
     *   Other appropriate actions.
 
-Decisions made by Shakers dispute resolution team are generally final.
+Decisions made by Makers dispute resolution team are generally final.
 
 ## Tips for a Smoother Process
 
-*   **Keep all communication and file sharing on the Shakers platform.** This provides a clear record.
+*   **Keep all communication and file sharing on the Makers platform.** This provides a clear record.
 *   **Be clear and concise in your project scope and agreements from the start.**
 *   **Respond promptly to requests from the dispute resolution team.**
 

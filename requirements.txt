@@ -4,4 +4,5 @@ google-generativeai
 python-dotenv
 langchain-text-splitters
 faiss-cpu
+requests
 # Add other dependencies as needed, e.g., for vector databases, etc.
