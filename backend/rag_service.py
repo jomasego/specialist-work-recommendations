@@ -2,6 +2,7 @@ import os
 import pickle
 import faiss
 import google.generativeai as genai
+from groq import Groq
 from dotenv import load_dotenv
 import numpy as np
 import logging
@@ -19,9 +20,13 @@ class RAGService:
         self.logger = logging.getLogger(__name__)
         self.logger.info("Initializing RAGService...")
         try:
-            self._load_dotenv_and_configure_api()
+            self.gemini_api_key, self.groq_api_key = self._load_api_keys()
+            genai.configure(api_key=self.gemini_api_key)
+
             self.embedding_model = "models/embedding-001"
-            self.llm = genai.GenerativeModel('gemini-1.5-flash-latest')
+            self.gemini_llm = genai.GenerativeModel('gemini-1.5-flash-latest')
+            self.groq_client = Groq(api_key=self.groq_api_key)
+
             self.index = self._load_faiss_index()
             self.doc_chunks = self._load_doc_chunks()
             self.logger.info("RAGService initialized successfully.")
@@ -32,14 +37,18 @@ class RAGService:
             # For now, just logging the critical failure.
             raise RAGServiceError(f"RAGService initialization failed: {e}") from e
 
-    def _load_dotenv_and_configure_api(self):
+    def _load_api_keys(self):
         load_dotenv()
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
+        gemini_api_key = os.getenv("GEMINI_API_KEY")
+        groq_api_key = os.getenv("GROQ_API_KEY")
+        if not gemini_api_key:
             self.logger.error("GEMINI_API_KEY not found in environment variables.")
-            raise RAGServiceError("GEMINI_API_KEY not found in environment variables.") # Changed to RAGServiceError
-        genai.configure(api_key=api_key)
-        self.logger.info("Gemini API configured.")
+            raise RAGServiceError("GEMINI_API_KEY not found.")
+        if not groq_api_key:
+            self.logger.error("GROQ_API_KEY not found in environment variables.")
+            raise RAGServiceError("GROQ_API_KEY not found.")
+        self.logger.info("API keys loaded successfully.")
+        return gemini_api_key, groq_api_key
 
     def _load_faiss_index(self):
         if not os.path.exists(INDEX_PATH):
@@ -92,7 +101,7 @@ class RAGService:
             self.logger.error(f"Error during knowledge base search for query '{query[:100]}...': {e}", exc_info=True)
             return [] # Return empty list on error to allow graceful failure
 
-    def answer_query(self, current_query, chat_history=None):
+    def answer_query(self, current_query, chat_history=None, model='gemini-1.5-flash-latest'):
         """Answers a user query using the RAG pipeline, considering chat history for context."""
         self.logger.info(f"Received current_query: '{current_query[:100]}...', with chat_history: {chat_history is not None}")
         
@@ -119,9 +128,18 @@ class RAGService:
             """
             self.logger.debug(f"No-info prompt for LLM: {no_info_prompt[:300]}...")
             try:
-                response = self.llm.generate_content(no_info_prompt)
-                self.logger.info("Generated no-info response from LLM.")
-                return {"answer": response.text, "sources": []}
+                if model.startswith('gemini'):
+                    response = self.gemini_llm.generate_content(no_info_prompt)
+                    answer = response.text
+                else: # Assume Groq
+                    chat_completion = self.groq_client.chat.completions.create(
+                        messages=[{"role": "user", "content": no_info_prompt}],
+                        model=model,
+                    )
+                    answer = chat_completion.choices[0].message.content
+
+                self.logger.info(f"Generated no-info response from {model}.")
+                return {"answer": answer, "sources": []}
             except Exception as e:
                 self.logger.error(f"Error generating no-info response from LLM: {e}", exc_info=True)
                 return {"answer": "I'm sorry, I couldn't find information for your query and had trouble generating a response.", "sources": []}
@@ -165,10 +183,39 @@ class RAGService:
         self.logger.debug(f"Conversational prompt prepared for LLM (first 500 chars):\n{prompt[:500]}...\n")
 
         try:
-            self.logger.info("Generating response from LLM...")
-            response = self.llm.generate_content(prompt)
-            self.logger.info("Successfully generated response from LLM.")
-            return {"answer": response.text, "sources": sources}
+            self.logger.info(f"Generating response from LLM: {model}...")
+            if model.startswith('gemini'):
+                response = self.gemini_llm.generate_content(prompt)
+                answer = response.text
+            else: # Assume Groq
+                # Groq uses a different prompt format (message list)
+                system_prompt = """
+                You are an expert assistant for the Makers platform. 
+                Your task is to answer the user's current question based on the provided context and the preceding conversation history.
+                If the context does not contain the answer to the current question, state that you don't have enough information from the provided documents for *this specific question*.
+                Be clear, concise, and helpful. Refer to the conversation history if it helps clarify the current question or if the user is referring to something said earlier.
+                If you use information from the context, mention the source document names listed if relevant (e.g., 'According to 01_getting_started.md...').
+                """
+                user_prompt = f"""
+                CONVERSATION HISTORY:
+                {history_for_prompt}
+                PROVIDED CONTEXT for the current question "{current_query}":
+                {context}
+
+                CURRENT QUESTION:
+                User: {current_query}
+                """
+                chat_completion = self.groq_client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    model=model,
+                )
+                answer = chat_completion.choices[0].message.content
+
+            self.logger.info(f"Successfully generated response from {model}.")
+            return {"answer": answer, "sources": sources}
         except Exception as e:
             self.logger.error(f"Error generating response from LLM: {e}", exc_info=True)
             return {
@@ -180,14 +227,14 @@ class RAGService:
 if __name__ == '__main__':
     rag_service = RAGService()
     test_query = "How do payments work for freelancers?"
-    result = rag_service.answer_query(test_query)
+    result = rag_service.answer_query(test_query, model='llama3-8b-8192')
     print("\n--- Query Result ---")
     print(f"Question: {test_query}")
     print(f"Answer: {result['answer']}")
     print(f"Sources: {result['sources']}")
 
     test_query_2 = "What is the best way to find a good restaurant?"
-    result_2 = rag_service.answer_query(test_query_2)
+    result_2 = rag_service.answer_query(test_query_2, model='gemini-1.5-flash-latest')
     print("\n--- Query Result ---")
     print(f"Question: {test_query_2}")
     print(f"Answer: {result_2['answer']}")

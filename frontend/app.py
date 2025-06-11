@@ -84,13 +84,16 @@ if 'recommendations' not in st.session_state:
     st.session_state.recommendations = None # To store fetched recommendations
 if 'user_id' not in st.session_state: # Example user_id, can be dynamic
     st.session_state.user_id = "user_123"
+if 'selected_model' not in st.session_state:
+    st.session_state.selected_model = 'gemini-1.5-flash-latest' # Default model
 
 # --- API Helper Functions ---
 def query_backend(current_query, chat_history):
     """Sends the current query and chat history to the Flask backend's /chat endpoint."""
     payload = {
         "query": current_query,
-        "chat_history": chat_history
+        "chat_history": chat_history,
+        "model": st.session_state.get('selected_model', 'gemini-1.5-flash-latest') # Pass selected model
     }
     chat_url = f"{BACKEND_URL}/chat"
     print(f"Frontend: Sending to {chat_url}") # For debugging
@@ -116,9 +119,26 @@ def get_star_rating(percentage):
         return "★★★★★"  # 5 stars
 
 def handle_feedback(message_index, feedback_type):
+    """Sends feedback to the backend and updates the session state."""
     st.session_state.chat_history[message_index]['feedback'] = feedback_type
-    print(f"Feedback received for message {message_index}: {feedback_type}")
-    st.toast("Thanks for your feedback!", icon="✅")
+    
+    payload = {
+        "message_index": message_index,
+        "feedback_type": feedback_type,
+        "user_id": st.session_state.user_id,
+        "chat_history": st.session_state.chat_history
+    }
+    feedback_url = f"{BACKEND_URL}/feedback"
+    try:
+        response = requests.post(feedback_url, json=payload, timeout=10)
+        response.raise_for_status()
+        st.toast("Thanks for your feedback!", icon="✅")
+        print(f"Successfully sent feedback to backend: {feedback_type}")
+    except requests.exceptions.RequestException as e:
+        st.error("Could not submit feedback. Please try again.")
+        print(f"Error sending feedback: {e}")
+        # Revert feedback state on error
+        del st.session_state.chat_history[message_index]['feedback']
 
 def update_recommendations(force_update=False):
     """Fetches recommendations based on the entire chat history."""
@@ -148,6 +168,50 @@ try:
     st.image(logo_path, width=200) # Adjust width as needed
 except Exception as e:
     st.warning(f"Could not load logo from {logo_path}. Please ensure the file exists. Error: {e}")
+
+# --- Sidebar for Recommendations and Controls ---
+st.sidebar.title("Tools & Recommendations 🛠️")
+
+# Add a model selector to the sidebar
+st.session_state.selected_model = st.sidebar.selectbox(
+    "Choose your AI Model:",
+    ("gemini-1.5-flash-latest", "llama3-8b-8192"),
+    key='model_selector', # Add a key to persist selection
+    format_func=lambda x: "Gemini 1.5 Flash (Balanced)" if x == "gemini-1.5-flash-latest" else "Groq Llama3 8B (Fast)",
+    help="Gemini is great for complex reasoning. Groq offers near-instant responses for general queries."
+)
+
+# Display recommendations in the sidebar
+if st.session_state.recommendations:
+    if "error" in st.session_state.recommendations:
+        st.sidebar.error(f"Could not fetch recommendations: {st.session_state.recommendations['error']}")
+    
+    freelancers = st.session_state.recommendations.get("freelancers", [])
+    if freelancers:
+        st.sidebar.subheader("Recommended Freelancers ✨")
+        for f in freelancers:
+            match_percentage = f.get('match_strength', {}).get('percentage', 0)
+            star_rating = get_star_rating(match_percentage)
+            
+            st.sidebar.markdown(f"""
+            <div class="freelancer-card">
+                <h4>{f.get('name', 'N/A')}</h4>
+                <div class="title">{f.get('title', 'N/A')}</div>
+                <div class="details">
+                    <b>Match:</b> {match_percentage:.0f}% {star_rating}<br>
+                    <b>Specialties:</b> {', '.join(f.get('specialties', ['N/A']))}<br>
+                </div>
+                <div class="matched-on">
+                    <i>Matched on: {', '.join(f.get('match_strength', {}).get('matched_on', []))}</i>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    articles = st.session_state.recommendations.get("articles", [])
+    if articles:
+        st.sidebar.subheader("Suggested Articles 📚")
+        for article in articles:
+            st.sidebar.markdown(f"- [{article['title']}]({article['url']})")
 
 st.title("Makers AI Assistant 🤝")
 st.write("Ask me anything about the Makers platform. I can help with questions about payments, finding talent, and best practices.")
@@ -201,16 +265,18 @@ for i, message in enumerate(st.session_state.chat_history):
         st.markdown(message["content"])
         # If the message is from the assistant, show sources and feedback buttons
         if message["role"] == "assistant":
-            if message.get("sources"):
-                st.info(f"Sources: {', '.join(message['sources'])}", icon="📚")
+            if "sources" in message and message["sources"]:
+                with st.expander("View Sources"):
+                    for source in message["sources"]:
+                        st.caption(f"- {source}")
             
             # Feedback buttons
-            feedback_key_base = f"feedback_{i}"
-            # Check if feedback has already been given for this message
-            if 'feedback' not in message:
-                cols = st.columns([1, 1, 10]) # Adjust column ratios as needed
-                with cols[0]:
-                    st.button("👍", key=f"{feedback_key_base}_up", on_click=handle_feedback, args=(i, 'positive'))
+            feedback_given = message.get('feedback')
+            cols = st.columns([1, 1, 10]) # Adjust column ratios for spacing
+            with cols[0]:
+                st.button("👍", key=f"up_{i}", on_click=handle_feedback, args=(i, 'positive'), disabled=bool(feedback_given), help="This was helpful!")
+            with cols[1]:
+                st.button("👎", key=f"down_{i}", on_click=handle_feedback, args=(i, 'negative'), disabled=bool(feedback_given), help="This wasn't helpful.")
                 with cols[1]:
                     st.button("👎", key=f"{feedback_key_base}_down", on_click=handle_feedback, args=(i, 'negative'))
 

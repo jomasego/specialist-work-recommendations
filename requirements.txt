@@ -2,8 +2,11 @@ Flask
 Flask-Cors
 streamlit
 google-generativeai
+groq
 python-dotenv
 langchain-text-splitters
+pytest
+pytest-mock
 faiss-cpu
 requests
 # Add other dependencies as needed, e.g., for vector databases, etc.

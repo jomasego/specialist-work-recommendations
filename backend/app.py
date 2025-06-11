@@ -1,6 +1,7 @@
 import logging
 import os
 from logging.handlers import RotatingFileHandler
+import json
 from flask import Flask, request, jsonify
 from rag_service import RAGService, RAGServiceError
 from recommendation_service import RecommendationService
@@ -75,6 +76,7 @@ def handle_chat():
 
     current_query = data['query']
     chat_history = data.get('chat_history', [])
+    model = data.get('model', 'gemini-1.5-flash-latest') # Default to Gemini
     app.logger.info(f"Query: '{current_query}', History items: {len(chat_history)}")
 
     # --- Intent Detection --- #
@@ -94,7 +96,7 @@ def handle_chat():
         return jsonify({"error": "The RAG service is not available."}), 503
     
     try:
-        result = rag_service.answer_query(current_query=current_query, chat_history=chat_history)
+        result = rag_service.answer_query(current_query=current_query, chat_history=chat_history, model=model)
         app.logger.info(f"Successfully processed /chat (RAG) for: '{current_query}'.")
         return jsonify(result)
     except Exception as e:
@@ -127,6 +129,33 @@ def get_recommendations_endpoint():
     except Exception as e:
         app.logger.error(f"Error generating recommendations: {e}", exc_info=True)
         return jsonify({"error": "Failed to generate recommendations"}), 500
+
+@app.route('/feedback', methods=['POST'])
+def handle_feedback():
+    app.logger.info(f"POST /feedback received from {request.remote_addr}")
+    data = request.get_json()
+    if not data or 'message_index' not in data or 'feedback_type' not in data:
+        app.logger.warning("Feedback endpoint called with missing data.")
+        return jsonify({"error": "Missing 'message_index' or 'feedback_type'"}), 400
+
+    try:
+        feedback_record = {
+            "timestamp": logging.Formatter().formatTime(logging.makeLogRecord({})),
+            "user_id": data.get("user_id"),
+            "message_index": data.get("message_index"),
+            "feedback_type": data.get("feedback_type"),
+            "chat_history": data.get("chat_history", [])
+        }
+
+        # Log feedback to a structured file
+        with open('logs/feedback.jsonl', 'a') as f:
+            f.write(json.dumps(feedback_record) + '\n')
+        
+        app.logger.info(f"Successfully logged feedback: {data.get('feedback_type')} for message index {data.get('message_index')}")
+        return jsonify({"status": "success", "message": "Feedback received"}), 200
+    except Exception as e:
+        app.logger.error(f"Error processing feedback: {e}", exc_info=True)
+        return jsonify({"error": "Internal server error while processing feedback"}), 500
 
 if __name__ == '__main__':
     # When running with 'python app.py', debug=True is fine for Flask's reloader.
