@@ -9,4 +9,5 @@ pytest
 pytest-mock
 faiss-cpu
 requests
+Flask-Limiter
 # Add other dependencies as needed, e.g., for vector databases, etc.

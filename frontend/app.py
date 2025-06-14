@@ -46,11 +46,31 @@ st.markdown("""
     }
     /* Recommendation Card Styling */
     .freelancer-card {
+        background-color: #ffffff;
+        border: 1px solid #e1e4e8;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        transition: box-shadow 0.2s ease-in-out;
+    }
+    .freelancer-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .freelancer-card-chat {
+        background-color: #f9f9f9;
+        border: 1px solid #e1e4e8;
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+    .freelancer-card-sidebar {
         border: 1px solid #e6e6e6;
         border-radius: 8px;
-        padding: 15px;
+        padding: 10px;
         margin-bottom: 10px;
-        background-color: #ffffff;
+        background-color: #fafafa;
     }
     .freelancer-card h4 {
         margin-bottom: 2px;
@@ -75,7 +95,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Backend API Configuration ---
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5001")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5002")
 
 # --- Session State Initialization ---
 if 'chat_history' not in st.session_state:
@@ -156,6 +176,42 @@ def update_recommendations(force_update=False):
             print(f"Error fetching recommendations: {e}")
             st.session_state.recommendations = {"freelancers": [], "articles": [], "error": str(e)}
 
+def handle_submit():
+    """
+    Callback function to handle chat submission.
+    Processes the user query, gets a response, updates recommendations,
+    and clears the input box.
+    """
+    user_query = st.session_state.user_query_input
+    if user_query:
+        # Add user query to chat history
+        st.session_state.chat_history.append({"role": "user", "content": user_query})
+        
+        # Get AI response from backend
+        with st.spinner("Makers AI is thinking..."):
+            backend_response = query_backend(user_query, st.session_state.chat_history)
+            
+            if "error" in backend_response:
+                ai_response_content = f"Sorry, I encountered an error: {backend_response['error']}"
+                sources = []
+            else:
+                ai_response_content = backend_response.get("answer", "Sorry, I couldn't find an answer.")
+                sources = backend_response.get("sources", [])
+
+        # Add AI response to chat history
+        assistant_message = {"role": "assistant", "content": ai_response_content, "sources": sources}
+        st.session_state.chat_history.append(assistant_message)
+        
+        # Attach the query-specific recommendations to the message for in-chat display
+        if "query_recommendations" in backend_response:
+            assistant_message['recommendations'] = backend_response["query_recommendations"]
+
+        # After processing the main response, update the global recommendations for the sidebar
+        update_recommendations(force_update=True)
+
+        # Clear the input box. This is safe inside a callback.
+        st.session_state.user_query_input = ""
+
 # --- UI Layout ---
 
 # Display the logo
@@ -175,43 +231,15 @@ st.sidebar.title("Tools & Recommendations 🛠️")
 # Add a model selector to the sidebar
 st.session_state.selected_model = st.sidebar.selectbox(
     "Choose your AI Model:",
-    ("gemini-1.5-flash-latest", "llama3-8b-8192"),
+    ("gemini-1.5-flash-latest", "llama3-8b-8192", "qwen-qwq-32b"),
     key='model_selector', # Add a key to persist selection
-    format_func=lambda x: "Gemini 1.5 Flash (Balanced)" if x == "gemini-1.5-flash-latest" else "Groq Llama3 8B (Fast)",
-    help="Gemini is great for complex reasoning. Groq offers near-instant responses for general queries."
+    format_func=lambda x: {
+        "gemini-1.5-flash-latest": "Gemini 1.5 Flash (Balanced)",
+        "llama3-8b-8192": "Groq Llama3 8B (Fast)",
+        "qwen-qwq-32b": "Qwen QwQ 32B (Reasoning)"
+    }.get(x, x),
+    help="Gemini is great for complex reasoning. Groq offers near-instant responses for general queries. Qwen excels at reasoning tasks."
 )
-
-# Display recommendations in the sidebar
-if st.session_state.recommendations:
-    if "error" in st.session_state.recommendations:
-        st.sidebar.error(f"Could not fetch recommendations: {st.session_state.recommendations['error']}")
-    
-    freelancers = st.session_state.recommendations.get("freelancers", [])
-    if freelancers:
-        st.sidebar.subheader("Recommended Freelancers ✨")
-        for f in freelancers:
-            match_percentage = f.get('match_strength', {}).get('percentage', 0)
-            star_rating = get_star_rating(match_percentage)
-            
-            st.sidebar.markdown(f"""
-            <div class="freelancer-card">
-                <h4>{f.get('name', 'N/A')}</h4>
-                <div class="title">{f.get('title', 'N/A')}</div>
-                <div class="details">
-                    <b>Match:</b> {match_percentage:.0f}% {star_rating}<br>
-                    <b>Specialties:</b> {', '.join(f.get('specialties', ['N/A']))}<br>
-                </div>
-                <div class="matched-on">
-                    <i>Matched on: {', '.join(f.get('match_strength', {}).get('matched_on', []))}</i>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    articles = st.session_state.recommendations.get("articles", [])
-    if articles:
-        st.sidebar.subheader("Suggested Articles 📚")
-        for article in articles:
-            st.sidebar.markdown(f"- [{article['title']}]({article['url']})")
 
 st.title("Makers AI Assistant 🤝")
 st.write("Ask me anything about the Makers platform. I can help with questions about payments, finding talent, and best practices.")
@@ -220,65 +248,67 @@ st.write("Ask me anything about the Makers platform. I can help with questions a
 st.header("💬 Makers AI Assistant")
 
 # Use a form for the chat input to allow submission on Enter
+# Use a form for the chat input to allow submission on Enter and clear after.
 with st.form(key='chat_form'):
-    user_query = st.text_input("Your question", placeholder="e.g., How do I get paid for a fixed-price project?", key="user_query_input")
-    submit_button = st.form_submit_button(label='Ask')
-
-if submit_button and user_query:
-    # Add user query to chat history
-    st.session_state.chat_history.append({"role": "user", "content": user_query})
-    with st.chat_message("user"):
-        st.markdown(user_query)
-
-    # Get AI response from backend
-    with st.spinner("Makers AI is thinking..."):
-        # Pass the current user_query and the existing st.session_state.chat_history
-        backend_response = query_backend(user_query, st.session_state.chat_history)
-        
-        if "error" in backend_response:
-            ai_response_content = f"Sorry, I encountered an error: {backend_response['error']}"
-            sources = []
-        else:
-            ai_response_content = backend_response.get("answer", "Sorry, I couldn't find an answer.")
-            sources = backend_response.get("sources", [])
-
-    # Display AI response
-    with st.chat_message("assistant"):
-        st.markdown(ai_response_content)
-        if sources:
-            with st.expander("View Sources"):
-                for source in sources:
-                    st.caption(f"- {source}")
-    
-    # Add AI response to chat history
-    st.session_state.chat_history.append({"role": "assistant", "content": ai_response_content, "sources": sources})
-    
-    # After getting a response from the assistant, update recommendations
-    update_recommendations(force_update=True)
-
-    # Rerun to update the sidebar with new recommendations immediately
-    st.rerun()
+    st.text_input(
+        "Your question", 
+        placeholder="e.g., How do I get paid for a fixed-price project?", 
+        key="user_query_input"
+    )
+    st.form_submit_button(label='Ask', on_click=handle_submit)
 
 # Display chat history
 for i, message in enumerate(st.session_state.chat_history):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
-        # If the message is from the assistant, show sources and feedback buttons
+
+        # If the message is from the assistant, show extras like recommendations, sources, and feedback
         if message["role"] == "assistant":
+            # Display recommendations if they exist for this message
+            if "recommendations" in message and message["recommendations"]:
+                freelancers = message["recommendations"].get("freelancers", [])
+                articles = message["recommendations"].get("articles", [])
+
+                if freelancers:
+                    st.write("--- ")
+                    st.subheader("✨ Recommended Freelancers")
+                    for f in freelancers:
+                        match_percentage = f.get('match_strength', {}).get('percentage', 0)
+                        star_rating = get_star_rating(match_percentage)
+                        st.markdown(f"""
+                        <div class="freelancer-card-chat">
+                            <h4>{f.get('name', 'N/A')}</h4>
+                            <div class="title">{f.get('title', 'N/A')}</div>
+                            <div class="details">
+                                <b>Match:</b> {match_percentage:.0f}% {star_rating}<br>
+                                <b>Specialties:</b> {', '.join(f.get('specialties', ['N/A']))}<br>
+                            </div>
+                            <div class="matched-on">
+                                <i>Matched on: {', '.join(f.get('match_strength', {}).get('matched_on', []))}</i>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                if articles:
+                    st.write("--- ")
+                    st.subheader("📚 Suggested Articles")
+                    for article in articles:
+                        st.markdown(f"- [{article['title']}]({article['url']})")
+
+            # Display sources if they exist
             if "sources" in message and message["sources"]:
                 with st.expander("View Sources"):
                     for source in message["sources"]:
                         st.caption(f"- {source}")
             
             # Feedback buttons
-            feedback_given = message.get('feedback')
-            cols = st.columns([1, 1, 10]) # Adjust column ratios for spacing
+            st.write("") # Spacer
+            feedback_key_base = f"feedback_{i}"
+            cols = st.columns(12)
             with cols[0]:
-                st.button("👍", key=f"up_{i}", on_click=handle_feedback, args=(i, 'positive'), disabled=bool(feedback_given), help="This was helpful!")
+                st.button("👍", key=f"{feedback_key_base}_up", on_click=handle_feedback, args=(i, "positive"))
             with cols[1]:
-                st.button("👎", key=f"down_{i}", on_click=handle_feedback, args=(i, 'negative'), disabled=bool(feedback_given), help="This wasn't helpful.")
-                with cols[1]:
-                    st.button("👎", key=f"{feedback_key_base}_down", on_click=handle_feedback, args=(i, 'negative'))
+                st.button("👎", key=f"{feedback_key_base}_down", on_click=handle_feedback, args=(i, "negative"))
 
 # --- Sidebar ---
 with st.sidebar:
@@ -287,79 +317,51 @@ with st.sidebar:
     This AI assistant is designed to help you navigate the Makers platform, 
     answer your questions, and provide recommendations.
     
-    **Powered by Gemini & RAG.**
+    **Powered by Gemini, Groq & RAG.**
     """)
-    st.divider()
-    st.header("Recommendations Panel")
+    st.markdown("---")
+    st.header("⭐ Top Matches")
 
-    if st.session_state.recommendations:
-        if "error" in st.session_state.recommendations:
-            st.error(f"Could not load recommendations: {st.session_state.recommendations['error']}")
-        else:
-            st.markdown("### Suggested Freelancers")
-            if st.session_state.recommendations.get('freelancers'):
-                for rec in st.session_state.recommendations['freelancers']:
-                    freelancer = rec['freelancer']
-                    match_details = rec.get('match_details', {})
-
-                    # Specialties
-                    specialties_html = ""
-                    if freelancer.get('specialties'):
-                        specialties_list = ", ".join(freelancer['specialties'])
-                        specialties_html = f"<p class='details'><b>Specialties:</b> {specialties_list}</p>"
-
-                    # Skills as tags
-                    skills_html = ""
-                    if freelancer.get('skills'):
-                        skills_tags = ""
-                        for skill_item in freelancer['skills']:
-                            # Simple tag for now, can be enhanced with proficiency later
-                            skills_tags += f"<span style='background-color:#e0e0e0; color:#333; padding: 2px 6px; border-radius:4px; margin-right:4px; font-size:0.8em;'>{skill_item.get('name')}</span> "
-                        if skills_tags:
-                            skills_html = f"<p class='details'><b>Skills:</b> {skills_tags}</p>"
-
-                    # Matched on details
-                    matched_on_parts = []
-                    if match_details.get('specialties'):
-                        matched_on_parts.append(f"specialties: {', '.join(match_details['specialties'])}")
-                    if match_details.get('skills'):
-                        matched_on_parts.append(f"skills: {', '.join(match_details['skills'])}")
-                    if match_details.get('title'):
-                        matched_on_parts.append(f"title: {', '.join(match_details['title'])}")
-                    if match_details.get('bio'):
-                        matched_on_parts.append(f"bio: {', '.join(match_details['bio'])}")
-                    
-                    matched_on_str = "; ".join(matched_on_parts)
-                    if not matched_on_str:
-                        matched_on_str = "General relevance"
-
-                    card_html = f"""
-                    <div class="freelancer-card">
-                        <h4>{freelancer.get('name', 'N/A')}</h4>
-                        <p class="title">{freelancer.get('title', 'N/A')}</p>
-                        {specialties_html}
-                        {skills_html}
-                        <p class="details">Rate: ${freelancer.get('hourly_rate_usd', 'N/A')}/hr</p>
-                        <p class="details">Availability: {freelancer.get('availability', 'N/A')}</p>
-                        <p class="matched-on">Matched on: {matched_on_str}</p>
-                        <p class="details"><b>Match Strength:</b> {rec.get('match_percentage', 0)}% {get_star_rating(rec.get('match_percentage', 0))}</p>
-                    </div>
-                    """
-                    st.markdown(card_html, unsafe_allow_html=True)
-            else:
-                st.info("No specific freelancer recommendations at this time.")
-            articles = st.session_state.recommendations.get("articles", [])
-            if articles:
-                st.subheader("Relevant Articles")
-                for rec in articles:
-                    article_name = rec.get('article_name', 'N/A')
-                    # Clean up article name for display
-                    display_article_name = article_name.replace('_', ' ').replace('.md', '')
-                    st.markdown(f"📄 **{display_article_name.title()}**") # Title case for better readability
-                    if rec.get('matched_keywords'):
-                        st.caption(f"_Keywords: {', '.join(rec.get('matched_keywords'))}_ ")
-                    # Future: Add a button or link to view the article content if routes are set up
-                    # st.button(f"Read {display_article_name.title()}", key=f"article_{article_name}")
-                    st.markdown("---") # Visually separates article entries
+    if 'recommendations' not in st.session_state or st.session_state.recommendations is None or not (st.session_state.recommendations.get("freelancers") or st.session_state.recommendations.get("articles")):
+        st.info("Top recommendations based on the conversation will appear here.")
     else:
-        st.info("Personalized recommendations will appear here based on your conversation.")
+        freelancers = st.session_state.recommendations.get("freelancers", [])
+        articles = st.session_state.recommendations.get("articles", [])
+
+        if freelancers:
+            st.subheader("Recommended Freelancers")
+            for f_rec in freelancers:
+                f = f_rec.get("freelancer", {})
+                match_percentage = f_rec.get('match_percentage', 0)
+                star_rating = get_star_rating(match_percentage)
+                matched_on = f_rec.get('match_details', {})
+                
+                # Consolidate matched keywords for display
+                matched_on_parts = []
+                for key, keywords in matched_on.items():
+                    if keywords:
+                        matched_on_parts.append(f"{', '.join(keywords)}")
+                matched_on_str = "; ".join(matched_on_parts)
+
+                st.markdown(f"""
+                <div class="freelancer-card-sidebar">
+                    <h4>{f.get('name', 'N/A')}</h4>
+                    <div class="title">{f.get('title', 'N/A')}</div>
+                    <div class="details">
+                        <b>Match:</b> {match_percentage:.0f}% {star_rating}<br>
+                        <b>Specialties:</b> {', '.join(f.get('specialties', ['N/A']))}
+                    </div>
+                    <div class="matched-on">
+                        <i>Matched on: {matched_on_str}</i>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        if articles:
+            st.subheader("Suggested Articles")
+            for article_rec in articles:
+                article_name = article_rec.get('article_name', 'N/A')
+                display_name = article_name.replace('_', ' ').replace('.md', '').title()
+                st.markdown(f"📄 **{display_name}**")
+                if article_rec.get('matched_keywords'):
+                    st.caption(f"Keywords: {', '.join(article_rec.get('matched_keywords'))}")

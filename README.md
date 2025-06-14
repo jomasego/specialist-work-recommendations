@@ -14,6 +14,10 @@ Welcome to the Makers AI Assistant! This project is an intelligent, conversation
 *   **📊 Dynamic UI:** The recommendation panel updates in real-time as the conversation evolves.
 *   **👍 Feedback Mechanism:** Users can provide direct feedback (👍/👎) on the assistant's answers, which is logged for future analysis.
 *   **✅ Comprehensive Testing:** Includes a full suite of unit and integration tests to ensure reliability.
+*   **⚡ Optimized Performance:** Implements smart caching for the `/chat` endpoint, significantly speeding up responses to repeated queries.
+*   **🛡️ Enhanced Security:**
+    *   **Prompt Injection Defense:** Incoming queries are scanned for common prompt injection patterns and rejected if detected.
+    *   **Inappropriate Content Filtering:** Utilizes Gemini's built-in safety settings and Groq's `Llama-Guard-4` model to filter harmful or inappropriate content.
 
 ## 🛠️ Tech Stack
 
@@ -93,7 +97,16 @@ pytest
         *   For questions, it calls the `RAGService` to find relevant documents and generate an answer using the selected model (Gemini or Groq).
         *   For freelancer requests, it returns a confirmation message, triggering the frontend to fetch recommendations.
 4.  **Recommendation Update:** The frontend makes a separate call to the `/recommendations` endpoint. This uses the `RecommendationService` to score and rank freelancers based on the full chat history.
-5.  **Feedback Loop:** User feedback is sent to the `/feedback` endpoint and logged as structured JSON for future analysis.
+5.  **Security & Optimization Pre-checks (for `/chat`):**
+    *   **Caching:** The system first checks an in-memory cache. If the same query (and model) was processed recently, the cached response is returned instantly.
+    *   **Prompt Injection Scan:** If not cached, the query is scanned for malicious patterns. If flagged, it's rejected.
+    *   **Content Moderation (Groq):** If using a Groq model, the query is then sent to `Llama-Guard-4` for a safety check. If deemed unsafe, it's rejected.
+6.  **RAG Service & LLM Interaction:**
+    *   For questions, the `RAGService` retrieves relevant documents.
+    *   It then calls the selected LLM (Gemini or Groq) to generate an answer, incorporating context and chat history.
+    *   **Content Moderation (Gemini):** Gemini's API has safety settings configured to block harmful responses. If a response is blocked, a generic safety message is returned.
+7.  **Recommendation Update:** The frontend makes a separate call to the `/recommendations` endpoint. This uses the `RecommendationService` to score and rank freelancers based on the full chat history.
+8.  **Feedback Loop:** User feedback is sent to the `/feedback` endpoint and logged as structured JSON for future analysis.
 
 ## 🔌 API Endpoints
 
@@ -103,8 +116,11 @@ pytest
 
 ## 🔮 Future Improvements
 
-*   **Advanced Interaction:** Implement sentiment detection and smart caching.
-*   **Robustness & Security:** Add malicious query detection and rate limiting.
-*   **Monitoring:** Track latency, cost, and API call metrics.
-*   **Database Integration:** Store chat history, user feedback, and freelancer profiles in a persistent database (e.g., SQLite or PostgreSQL).
-*   **Scalability:** Deploy the application using a production-ready WSGI server like Gunicorn.
+*   **Advanced Interaction:** Implement sentiment detection for adaptive responses.
+*   **Robustness & Security:** Implement rate limiting and explore more advanced security measures.
+*   **Monitoring & Analytics:** Integrate comprehensive tracking for latency, cost, API call metrics, and user engagement.
+*   **Database Integration:** Migrate from JSON files to a robust database (e.g., SQLite, PostgreSQL) for persistent storage of freelancer profiles, chat history, and feedback.
+*   **Automated Evaluation:** Develop scripts for automated evaluation against ground truth datasets to measure accuracy and relevance.
+*   **Advanced Prompting:** Experiment with techniques like few-shot prompting and chain-of-thought for more complex reasoning.
+*   **Context Compression:** Implement strategies to compress context for LLM API calls, optimizing for cost and token limits.
+*   **Scalability:** Deploy the application using a production-ready WSGI server like Gunicorn and explore containerization (e.g., Docker).

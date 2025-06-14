@@ -1,0 +1,75 @@
+2025-06-12 12:57:15,132 CRITICAL: RAGService failed to initialize: RAGService initialization failed: FAISS index not found at data/vector_store.faiss. Please run the indexing script first. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:72]
+Traceback (most recent call last):
+  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 105, in __init__
+    self.index = self._load_faiss_index()
+  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 128, in _load_faiss_index
+    raise RAGServiceError(f"FAISS index not found at {INDEX_PATH}. Please run the indexing script first.")
+backend.rag_service.RAGServiceError: FAISS index not found at data/vector_store.faiss. Please run the indexing script first.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/jomasego/personalized-recommendation-capabilities/backend/app.py", line 65, in <module>
+    rag_service = RAGService(db_service=db_service)
+  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 110, in __init__
+    raise RAGServiceError(f"RAGService initialization failed: {e}") from e
+backend.rag_service.RAGServiceError: RAGService initialization failed: FAISS index not found at data/vector_store.faiss. Please run the indexing script first.
+2025-06-12 12:57:15,134 INFO: RecommendationService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:76]
+2025-06-12 12:57:15,135 INFO: Starting Flask development server... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:288]
+2025-06-12 12:57:15,735 INFO: Flask backend application starting up... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:37]
+2025-06-12 12:57:15,736 INFO: DatabaseService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:58]
+2025-06-12 12:57:15,786 CRITICAL: RAGService failed to initialize: RAGService initialization failed: FAISS index not found at data/vector_store.faiss. Please run the indexing script first. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:72]
+Traceback (most recent call last):
+  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 105, in __init__
+    self.index = self._load_faiss_index()
+  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 128, in _load_faiss_index
+    raise RAGServiceError(f"FAISS index not found at {INDEX_PATH}. Please run the indexing script first.")
+backend.rag_service.RAGServiceError: FAISS index not found at data/vector_store.faiss. Please run the indexing script first.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/jomasego/personalized-recommendation-capabilities/backend/app.py", line 65, in <module>
+    rag_service = RAGService(db_service=db_service)
+  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 110, in __init__
+    raise RAGServiceError(f"RAGService initialization failed: {e}") from e
+backend.rag_service.RAGServiceError: RAGService initialization failed: FAISS index not found at data/vector_store.faiss. Please run the indexing script first.
+2025-06-12 12:57:15,788 INFO: RecommendationService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:76]
+2025-06-12 12:57:15,789 INFO: Starting Flask development server... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:288]
+2025-06-12 12:57:36,231 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:130]
+2025-06-12 12:57:36,232 INFO: New session_id generated: 0f27d52f-1915-4cab-bfba-598e9a275704 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:151]
+2025-06-12 12:57:36,233 INFO: Session: 0f27d52f-1915-4cab-bfba-598e9a275704, Query: 'I'm looking for a freelancer that will build a recommendation system for real estate investment products using python and ai agents', History items: 1, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:155]
+2025-06-12 12:57:36,234 INFO: Detected 'recommendation' intent for query: 'I'm looking for a freelancer that will build a recommendation system for real estate investment products using python and ai agents' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:122]
+2025-06-12 12:57:36,235 INFO: Responding with canned recommendation message. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:165]
+2025-06-12 12:57:36,261 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:220]
+2025-06-12 12:57:36,262 INFO: Successfully generated 2 freelancer and 0 article recommendations. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:239]
+2025-06-12 12:57:48,781 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:130]
+2025-06-12 12:57:48,782 INFO: New session_id generated: e5af723a-fc22-4ec4-85b5-e9da3251ec5b [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:151]
+2025-06-12 12:57:48,782 INFO: Session: e5af723a-fc22-4ec4-85b5-e9da3251ec5b, Query: 'Ok, i strongly need to have a budget under 80$/hour', History items: 3, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:155]
+2025-06-12 12:57:48,783 INFO: Detected 'question_answering' intent for query: 'Ok, i strongly need to have a budget under 80$/hour' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:124]
+2025-06-12 12:57:48,784 INFO: Cache miss for query: 'Ok, i strongly need to have a budget under 80$/hour'. Processing with RAG service. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:188]
+2025-06-12 12:57:48,785 ERROR: RAG service or Database service not available for /chat endpoint. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:190]
+2025-06-12 12:57:48,792 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:220]
+2025-06-12 12:57:48,793 INFO: Successfully generated 2 freelancer and 0 article recommendations. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:239]
+2025-06-12 13:12:28,049 INFO: Flask backend application starting up... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:37]
+2025-06-12 13:12:28,052 INFO: DatabaseService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:58]
+2025-06-12 13:12:28,113 CRITICAL: RAGService failed to initialize: RAGService initialization failed: FAISS index not found at data/vector_store.faiss. Please run the indexing script first. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:72]
+Traceback (most recent call last):
+  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 105, in __init__
+    self.index = self._load_faiss_index()
+  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 128, in _load_faiss_index
+    raise RAGServiceError(f"FAISS index not found at {INDEX_PATH}. Please run the indexing script first.")
+backend.rag_service.RAGServiceError: FAISS index not found at data/vector_store.faiss. Please run the indexing script first.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/jomasego/personalized-recommendation-capabilities/backend/app.py", line 65, in <module>
+    rag_service = RAGService(db_service=db_service)
+  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 110, in __init__
+    raise RAGServiceError(f"RAGService initialization failed: {e}") from e
+backend.rag_service.RAGServiceError: RAGService initialization failed: FAISS index not found at data/vector_store.faiss. Please run the indexing script first.
+2025-06-12 13:12:28,116 INFO: RecommendationService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:76]
+2025-06-12 13:12:28,117 INFO: Starting Flask development server... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:288]
+2025-06-12 13:12:28,817 INFO: Flask backend application starting up... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:37]
+2025-06-12 13:12:28,818 INFO: DatabaseService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:58]

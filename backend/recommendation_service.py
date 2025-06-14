@@ -51,65 +51,52 @@ class RecommendationService:
         stop_words = set(['a', 'an', 'the', 'in', 'on', 'at', 'for', 'to', 'of', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'is', 'are', 'was', 'were', 'and', 'or', 'but', 'if', 'so', 'that', 'about', 'with', 'from', 'into', 'during', 'including', 'unless', 'while', 'as', 'until', 'up', 'down', 'out', 'through', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now'])
         return set(word for word in words if word not in stop_words)
 
-    def get_recommendations(self, chat_history, k_freelancers=3, k_articles=2):
+    def _calculate_recommendations(self, text_to_analyze, k_freelancers=3, k_articles=2):
         """
-        Generates recommendations based on the full conversation history.
-        chat_history: A list of message objects, each with 'role' and 'content'.
+        Core logic to calculate recommendations based on a given text.
         """
-        self.logger.info(f"Generating recommendations based on chat history of length {len(chat_history)}.")
+        self.logger.info(f"Calculating recommendations for text: '{text_to_analyze[:100]}...'")
         freelancer_recs = []
         article_recs = []
 
-        if not chat_history:
-            return {"freelancers": [], "articles": []}
+        query_keywords = self._extract_keywords(text_to_analyze)
+        self.logger.debug(f"Extracted keywords for recommendations: {query_keywords}")
 
-        # Combine content from both 'user' and 'assistant' for a richer context
-        full_conversation_text = " ".join([msg['content'] for msg in chat_history])
-        
-        query_keywords = self._extract_keywords(full_conversation_text)
-        self.logger.debug(f"Extracted query keywords for recommendations: {query_keywords}")
-
-        # 1. Recommend Freelancers based on skills and title
+        # 1. Recommend Freelancers
         if self.freelancers:
             scored_freelancers = []
             for freelancer in self.freelancers:
                 score = 0
                 match_details = {"specialties": [], "skills": [], "title": [], "bio": []}
 
-                # Extract keywords from different fields
                 specialty_keywords = self._extract_keywords(" ".join(freelancer.get("specialties", [])).lower())
-                
-                # Extract skill names from the list of skill objects
                 skill_names = [skill.get('name', '') for skill in freelancer.get("skills", [])]
                 skill_keywords = self._extract_keywords(" ".join(skill_names).lower())
-                
                 title_keywords = self._extract_keywords(freelancer.get("title", "").lower())
                 bio_keywords = self._extract_keywords(freelancer.get("bio", "").lower())
 
-                # Weighted scoring
                 common_specialties = query_keywords.intersection(specialty_keywords)
-                score += len(common_specialties) * 4 # Highest weight for specialty match
+                score += len(common_specialties) * 4
                 if common_specialties:
                     match_details["specialties"] = list(common_specialties)
 
                 common_skills = query_keywords.intersection(skill_keywords)
-                score += len(common_skills) * 3  # High weight for direct skill match
+                score += len(common_skills) * 3
                 if common_skills:
                     match_details["skills"] = list(common_skills)
 
                 common_title = query_keywords.intersection(title_keywords)
-                score += len(common_title) * 2  # Medium weight for title match
+                score += len(common_title) * 2
                 if common_title:
                     match_details["title"] = list(common_title)
 
                 common_bio = query_keywords.intersection(bio_keywords)
-                score += len(common_bio) * 1  # Low weight for bio match
+                score += len(common_bio) * 1
                 if common_bio:
                     match_details["bio"] = list(common_bio)
                 
                 if score > 0:
                     match_percentage = min(int((score / MAX_EXPECTED_SCORE) * 100), 100)
-                    self.logger.debug(f"Freelancer '{freelancer.get('name')}' scored {score}, percentage: {match_percentage}%")
                     scored_freelancers.append({
                         "freelancer": freelancer, 
                         "score": score, 
@@ -117,14 +104,11 @@ class RecommendationService:
                         "match_details": match_details
                     })
             
-            # Sort by score and take top k
             scored_freelancers.sort(key=lambda x: x["score"], reverse=True)
             freelancer_recs = scored_freelancers[:k_freelancers]
-            self.logger.info(f"Found {len(freelancer_recs)} freelancer recommendations matching criteria.")
 
-        # 2. Recommend Knowledge Base Articles
-        is_platform_query = any(pk in full_conversation_text.lower() for pk in self.platform_keywords)
-        
+        # 2. Recommend Articles
+        is_platform_query = any(pk in text_to_analyze.lower() for pk in self.platform_keywords)
         if is_platform_query and self.knowledge_base_articles:
             scored_articles = []
             for article_name in self.knowledge_base_articles:
@@ -133,21 +117,42 @@ class RecommendationService:
                 common_article_keywords = query_keywords.intersection(article_keywords)
                 score += len(common_article_keywords)
 
-                # Boost articles that seem generally relevant to platform usage
                 if any(pk_word in article_name.lower() for pk_word in self.platform_keywords):
-                    score += 1 # Small boost for platform-related article names
+                    score += 1
                 
                 if score > 0:
                     scored_articles.append({"article_name": article_name, "score": score, "matched_keywords": list(common_article_keywords)})
             
             scored_articles.sort(key=lambda x: x["score"], reverse=True)
             article_recs = scored_articles[:k_articles]
-            self.logger.info(f"Found {len(article_recs)} article recommendations matching criteria.")
 
         return {
             "freelancers": freelancer_recs,
             "articles": article_recs
         }
+
+    def get_recommendations_for_history(self, chat_history, k_freelancers=3, k_articles=2):
+        """
+        Generates recommendations based on the full conversation history.
+        This is for the persistent sidebar.
+        """
+        self.logger.info(f"Generating recommendations based on chat history of length {len(chat_history)}.")
+        if not chat_history:
+            return {"freelancers": [], "articles": []}
+        
+        full_conversation_text = " ".join([msg['content'] for msg in chat_history])
+        return self._calculate_recommendations(full_conversation_text, k_freelancers, k_articles)
+
+    def get_recommendations_for_query(self, current_query, k_freelancers=3, k_articles=2):
+        """
+        Generates recommendations based on a single user query.
+        This is for the in-chat, contextual recommendations.
+        """
+        self.logger.info(f"Generating recommendations for single query: '{current_query}'")
+        if not current_query:
+            return {"freelancers": [], "articles": []}
+        
+        return self._calculate_recommendations(current_query, k_freelancers, k_articles)
 
 # Example Usage (for testing)
 if __name__ == '__main__':
@@ -156,7 +161,7 @@ if __name__ == '__main__':
         "How do I post a job for a UX designer?",
         "Find me a freelance graphic designer with experience in branding."
     ]
-    recs_client = service.get_recommendations(sample_history_client, current_query="Need a Python developer for a web app")
+    recs_client = service.get_recommendations_for_query(current_query="Need a Python developer for a web app")
     print("\n--- Client Recommendations ---")
     print(json.dumps(recs_client, indent=2))
 
@@ -164,6 +169,6 @@ if __name__ == '__main__':
         "How do payments work?",
         "best practices for my profile"
     ]
-    recs_freelancer = service.get_recommendations(sample_history_freelancer)
+    recs_freelancer = service.get_recommendations_for_history(sample_history_freelancer)
     print("\n--- Freelancer Recommendations ---")
     print(json.dumps(recs_freelancer, indent=2))
