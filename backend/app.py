@@ -7,10 +7,11 @@ from flask import Flask, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import uuid # For generating session IDs
-from rag_service import RAGService, RAGServiceError
-from recommendation_service import RecommendationService
-from database_service import DatabaseService # Added DatabaseService import
+from .rag_service import RAGService, RAGServiceError
+from .recommendation_service import RecommendationService
+from .database_service import DatabaseService # Added DatabaseService import
 from flask_cors import CORS
+from .multi_agent_service import agent_graph
 
 # --- Logging Setup ---
 if not os.path.exists('logs'):
@@ -154,67 +155,61 @@ def handle_chat():
 
     app.logger.info(f"Session: {session_id}, Query: '{current_query}', History items: {len(chat_history)}, Model: {model}")
 
-    # --- Intent Detection --- #
-    intent = detect_intent(current_query)
-
-    if intent == 'recommendation':
-        # For a recommendation request, we don't need to call the RAG service.
-        # The frontend will independently call the /recommendations endpoint.
-        # We just need to provide a friendly, non-RAG response here.
-        response_text = "Of course! I'm updating the recommendations based on your request. Take a look at the specialists I've found for you."
-        app.logger.info("Responding with canned recommendation message.")
-        # Log this interaction to chat history as well
-        if db_service:
-            db_service.add_chat_message(session_id=session_id, sender='user', message=current_query, intent_detected=intent)
-            db_service.add_chat_message(session_id=session_id, sender='assistant', message=response_text, model_used='intent_based_canned')
-        return jsonify({"answer": response_text, "sources": [], "session_id": session_id, "intent": intent})
-
-    # --- RAG Service for Question Answering --- #
-    # Check cache first
-    cache_key = (current_query.lower(), model)
-    if cache_key in query_cache:
-        app.logger.info(f"Cache hit for query: '{current_query}' with model '{model}'.")
-        cached_response = query_cache[cache_key]
-        cached_response['session_id'] = session_id # Ensure session_id is in response
-        cached_response['intent'] = intent
-        # Log user query and cached assistant response to DB if not already (tricky to know without more state)
-        # For simplicity, we assume RAGService handles logging its own successful calls, cache hit bypasses RAGService call here.
-        # However, the user's query for a cached response should still be logged.
-        if db_service:
-             db_service.add_chat_message(session_id=session_id, sender='user', message=current_query, intent_detected=intent)
-             db_service.add_chat_message(session_id=session_id, sender='assistant', message=cached_response['answer'], model_used=model + "_cached", intent_detected=intent)
-        return jsonify(cached_response)
-
-    app.logger.info(f"Cache miss for query: '{current_query}'. Processing with RAG service.")
-    if not rag_service or not db_service: # Also check db_service
-        app.logger.error("RAG service or Database service not available for /chat endpoint.")
-        return jsonify({"error": "A core service is not available."}), 503
+    # --- New Multi-Agent System Invocation ---
+    app.logger.info(f"Invoking multi-agent graph for query: '{current_query}'")
     
+    initial_state = {
+        "query": current_query,
+        "chat_history": chat_history,
+        "research_findings": "",
+        "agent_outcomes": [],
+        "final_response": "",
+    }
+
     try:
-        # RAGService.answer_query now requires session_id and handles its own chat logging
-        result = rag_service.answer_query(session_id=session_id, current_query=current_query, chat_history=chat_history, model=model)
+        import traceback
+        try:
+            print("Debug: About to invoke agent_graph with state:", initial_state)
+            final_state = agent_graph.invoke(initial_state)
+            print("Debug: agent_graph.invoke completed successfully")
+            
+            # Get recommendations for the current query
+            recommendations = {}
+            if recommendation_service:
+                try:
+                    # Get recommendations based on the current query and chat history
+                    recs = recommendation_service.get_recommendations_for_query(
+                        current_query=current_query,
+                        k_freelancers=10,  # Get top 10 freelancers
+                        k_articles=3       # Get top 3 articles
+                    )
+                    recommendations = {
+                        "freelancers": recs.get("freelancers", []),
+                        "articles": recs.get("articles", [])
+                    }
+                except Exception as e:
+                    app.logger.error(f"Error getting recommendations: {e}")
+            
+            response = {
+                "answer": final_state.get("final_response", "I'm not sure how to respond to that."),
+                "sources": [],  # Default empty sources since we're using the Agent-based approach
+                "agent_outcomes": final_state.get("agent_outcomes", []),  # For frontend visualization
+                "session_id": session_id,
+                "intent": "multi_agent_workflow", # New intent type
+                "query_recommendations": recommendations  # Add recommendations to the response
+            }
+        except Exception as e:
+            error_trace = traceback.format_exc()
+            print(f"\n\nCRITICAL ERROR IN AGENT GRAPH: {e}\n{error_trace}\n\n")
+            return jsonify({"error": f"Agent error: {str(e)}"}), 500
         
-        # --- Get recommendations for the current query (for in-chat display) ---
-        if recommendation_service:
-            query_recs = recommendation_service.get_recommendations_for_query(current_query)
-            result['query_recommendations'] = query_recs
-            app.logger.info(f"Added {len(query_recs.get('freelancers', []))} query-specific freelancer recommendations.")
-        else:
-            result['query_recommendations'] = {"freelancers": [], "articles": []}
+        # TODO: Add logging to DB service
+        
+        return jsonify(response)
 
-        # Add session_id and intent to the response for the client
-        result['session_id'] = session_id
-        result['intent'] = intent
-
-        # Store successful result in cache
-        query_cache[cache_key] = result.copy() # Store a copy to avoid modification issues
-        app.logger.info(f"Successfully processed and cached /chat (RAG) for: '{current_query}'.")
-        return jsonify(result)
     except Exception as e:
-        app.logger.error(f"Error processing /chat (RAG) for '{current_query}': {e}", exc_info=True)
-        # RAGService now logs its own errors with API metrics. We still log the user query if it wasn't logged yet.
-        # (RAGService.answer_query logs user query at its start, so it should be logged already)
-        error_response = {"error": "Internal server error", "details": str(e), "session_id": session_id, "intent": intent}
+        app.logger.error(f"Error invoking the multi-agent graph: {e}")
+        return jsonify({"error": str(e)}), 500
         # Log a generic error message to chat history for this session
         if db_service:
             db_service.add_chat_message(session_id=session_id, sender='assistant', message="I'm sorry, an internal error occurred.", model_used=model + "_error", intent_detected=intent)

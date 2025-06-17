@@ -104,16 +104,15 @@ if 'recommendations' not in st.session_state:
     st.session_state.recommendations = None # To store fetched recommendations
 if 'user_id' not in st.session_state: # Example user_id, can be dynamic
     st.session_state.user_id = "user_123"
-if 'selected_model' not in st.session_state:
-    st.session_state.selected_model = 'gemini-1.5-flash-latest' # Default model
+
 
 # --- API Helper Functions ---
 def query_backend(current_query, chat_history):
     """Sends the current query and chat history to the Flask backend's /chat endpoint."""
     payload = {
         "query": current_query,
-        "chat_history": chat_history,
-        "model": st.session_state.get('selected_model', 'gemini-1.5-flash-latest') # Pass selected model
+        "chat_history": chat_history
+        # Model selection is now handled by the multi-agent backend.
     }
     chat_url = f"{BACKEND_URL}/chat"
     print(f"Frontend: Sending to {chat_url}") # For debugging
@@ -121,6 +120,15 @@ def query_backend(current_query, chat_history):
         response = requests.post(chat_url, json=payload, timeout=120)
         response.raise_for_status()  # Raises an HTTPError for bad responses
         return response.json()
+    except requests.exceptions.HTTPError as http_err:
+        error_message = f"HTTP error occurred: {http_err}"
+        if http_err.response is not None:
+            try:
+                error_detail = http_err.response.json()
+                error_message += f" - Backend Details: {json.dumps(error_detail)}"
+            except json.JSONDecodeError:
+                error_message += f" - Backend Response (not JSON): {http_err.response.text}"
+        return {"error": error_message}
     except requests.exceptions.RequestException as e:
         return {"error": f"Failed to connect to the backend. Please ensure it's running. Details: {e}"}
 
@@ -143,10 +151,12 @@ def handle_feedback(message_index, feedback_type):
     st.session_state.chat_history[message_index]['feedback'] = feedback_type
     
     payload = {
-        "message_index": message_index,
-        "feedback_type": feedback_type,
+        "session_id": st.session_state.get("session_id", "unknown"),
+        "message_id": message_index,  # Use message index as message ID
+        "rating": 1 if feedback_type == "positive" else -1,
+        "comment": None,  # Optional comment
         "user_id": st.session_state.user_id,
-        "chat_history": st.session_state.chat_history
+        "recommendation_id": None  # Optional recommendation ID
     }
     feedback_url = f"{BACKEND_URL}/feedback"
     try:
@@ -170,8 +180,22 @@ def update_recommendations(force_update=False):
             response = requests.post(recommendations_url, json=payload, timeout=20)
             response.raise_for_status()
             recs = response.json()
+            
+            # Ensure we have the right data structure for recommendations
+            # But don't modify the response structure, just store it as-is
             st.session_state.recommendations = recs
             print(f"Recommendations updated: {len(recs.get('freelancers', []))} freelancers, {len(recs.get('articles', []))} articles")
+            
+            # Print first few freelancers for debugging
+            for i, f in enumerate(recs.get('freelancers', [])):
+                if i < 5:  # Only print first 5 for brevity
+                    print(f"Freelancer {i+1}: {f.get('freelancer', {}).get('name', 'N/A') if 'freelancer' in f else f.get('name', 'N/A')}")
+                else:
+                    break
+            print(f"Total freelancers in recommendations: {len(recs.get('freelancers', []))}")
+            print(f"Recommendation structure: {list(recs.keys())}")
+            print(f"First recommendation item structure: {list(recs.get('freelancers', [])[0].keys()) if recs.get('freelancers') else 'No freelancers'}")
+
         except requests.exceptions.RequestException as e:
             print(f"Error fetching recommendations: {e}")
             st.session_state.recommendations = {"freelancers": [], "articles": [], "error": str(e)}
@@ -194,17 +218,34 @@ def handle_submit():
             if "error" in backend_response:
                 ai_response_content = f"Sorry, I encountered an error: {backend_response['error']}"
                 sources = []
+                agent_outcomes = []
             else:
                 ai_response_content = backend_response.get("answer", "Sorry, I couldn't find an answer.")
                 sources = backend_response.get("sources", [])
+                agent_outcomes = backend_response.get("agent_outcomes", [])
 
         # Add AI response to chat history
-        assistant_message = {"role": "assistant", "content": ai_response_content, "sources": sources}
-        st.session_state.chat_history.append(assistant_message)
-        
-        # Attach the query-specific recommendations to the message for in-chat display
+        assistant_message = {
+            "role": "assistant", 
+            "content": ai_response_content, 
+            "sources": sources,
+            "agent_outcomes": agent_outcomes # Store the agent steps
+        }
+                # Attach the query-specific recommendations to the message for in-chat display
         if "query_recommendations" in backend_response:
             assistant_message['recommendations'] = backend_response["query_recommendations"]
+            print(f"DEBUG In-Chat Recs: Received query_recommendations: {json.dumps(backend_response['query_recommendations'], indent=2)}")
+            if not backend_response['query_recommendations'].get('freelancers'):
+                print("DEBUG In-Chat Recs: 'freelancers' key is missing or empty in query_recommendations for in-chat display.")
+        else:
+            print("DEBUG In-Chat Recs: 'query_recommendations' key NOT FOUND in backend_response for in-chat display.")
+
+        st.session_state.chat_history.append(assistant_message)
+        
+        # Update the agent logs in the right panel directly when response is received
+        if agent_outcomes:
+            print(f"Updating agent logs with {len(agent_outcomes)} items")
+            st.session_state.agent_logs = agent_outcomes
 
         # After processing the main response, update the global recommendations for the sidebar
         update_recommendations(force_update=True)
@@ -214,8 +255,13 @@ def handle_submit():
 
 # --- UI Layout ---
 
-# Display the logo
-# Construct path relative to the script's directory
+# Use sidebars for tools/recommendations and agent workflow
+sidebar_col = st.sidebar
+
+# Main content area (not using columns anymore)
+main_content = st
+
+# Display the logo in the main content area
 script_dir = os.path.dirname(os.path.abspath(__file__))
 logo_filename = "MAKERS-logo.svg"
 logo_path = os.path.join(script_dir, logo_filename)
@@ -226,129 +272,103 @@ except Exception as e:
     st.warning(f"Could not load logo from {logo_path}. Please ensure the file exists. Error: {e}")
 
 # --- Sidebar for Recommendations and Controls ---
-st.sidebar.title("Tools & Recommendations 🛠️")
+sidebar_col.title("Tools & Recommendations 🛠️")
 
-# Add a model selector to the sidebar
-st.session_state.selected_model = st.sidebar.selectbox(
-    "Choose your AI Model:",
-    ("gemini-1.5-flash-latest", "llama3-8b-8192", "qwen-qwq-32b"),
-    key='model_selector', # Add a key to persist selection
-    format_func=lambda x: {
-        "gemini-1.5-flash-latest": "Gemini 1.5 Flash (Balanced)",
-        "llama3-8b-8192": "Groq Llama3 8B (Fast)",
-        "qwen-qwq-32b": "Qwen QwQ 32B (Reasoning)"
-    }.get(x, x),
-    help="Gemini is great for complex reasoning. Groq offers near-instant responses for general queries. Qwen excels at reasoning tasks."
-)
+sidebar_col.markdown("--- ")
+sidebar_col.info("Model selection is now automated by the multi-agent backend.")
 
+# Set up the main title in the main content area
 st.title("Makers AI Assistant 🤝")
-st.write("Ask me anything about the Makers platform. I can help with questions about payments, finding talent, and best practices.")
+st.write("Ask me anything about the Makers platform. I can help with questions about payments, finding talent, and best practices. Made with 💖 in Madrid 🇪🇸")
 
-# --- Main Chat Interface ---
-st.header("💬 Makers AI Assistant")
-
-# Use a form for the chat input to allow submission on Enter
-# Use a form for the chat input to allow submission on Enter and clear after.
-with st.form(key='chat_form'):
-    st.text_input(
-        "Your question", 
-        placeholder="e.g., How do I get paid for a fixed-price project?", 
-        key="user_query_input"
-    )
-    st.form_submit_button(label='Ask', on_click=handle_submit)
-
-# Display chat history
-for i, message in enumerate(st.session_state.chat_history):
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-        # If the message is from the assistant, show extras like recommendations, sources, and feedback
-        if message["role"] == "assistant":
-            # Display recommendations if they exist for this message
-            if "recommendations" in message and message["recommendations"]:
-                freelancers = message["recommendations"].get("freelancers", [])
-                articles = message["recommendations"].get("articles", [])
-
-                if freelancers:
-                    st.write("--- ")
-                    st.subheader("✨ Recommended Freelancers")
-                    for f in freelancers:
-                        match_percentage = f.get('match_strength', {}).get('percentage', 0)
-                        star_rating = get_star_rating(match_percentage)
-                        st.markdown(f"""
-                        <div class="freelancer-card-chat">
-                            <h4>{f.get('name', 'N/A')}</h4>
-                            <div class="title">{f.get('title', 'N/A')}</div>
-                            <div class="details">
-                                <b>Match:</b> {match_percentage:.0f}% {star_rating}<br>
-                                <b>Specialties:</b> {', '.join(f.get('specialties', ['N/A']))}<br>
-                            </div>
-                            <div class="matched-on">
-                                <i>Matched on: {', '.join(f.get('match_strength', {}).get('matched_on', []))}</i>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                
-                if articles:
-                    st.write("--- ")
-                    st.subheader("📚 Suggested Articles")
-                    for article in articles:
-                        st.markdown(f"- [{article['title']}]({article['url']})")
-
-            # Display sources if they exist
-            if "sources" in message and message["sources"]:
-                with st.expander("View Sources"):
-                    for source in message["sources"]:
-                        st.caption(f"- {source}")
-            
-            # Feedback buttons
-            st.write("") # Spacer
-            feedback_key_base = f"feedback_{i}"
-            cols = st.columns(12)
-            with cols[0]:
-                st.button("👍", key=f"{feedback_key_base}_up", on_click=handle_feedback, args=(i, "positive"))
-            with cols[1]:
-                st.button("👎", key=f"{feedback_key_base}_down", on_click=handle_feedback, args=(i, "negative"))
-
-# --- Sidebar ---
+# Set up the agent log panel on the right sidebar
 with st.sidebar:
-    st.header("About Makers AI")
-    st.markdown("""
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🧠 Agent Workflow")
+    st.sidebar.info("This panel shows the multi-agent workflow and reasoning steps in real-time.")
+    
+    # Initialize session state for agent logs if it doesn't exist
+    if 'agent_logs' not in st.session_state:
+        st.session_state.agent_logs = []
+    
+    # Display current agent logs from session state
+    if st.session_state.agent_logs:
+        for i, log in enumerate(st.session_state.agent_logs):
+            # Use different colors for different agent types
+            if "Research Agent" in log:
+                st.sidebar.success(f"• {log}")
+            elif "Customer-Facing Agent" in log:
+                st.sidebar.info(f"• {log}")
+            elif "Manager Agent" in log:
+                st.sidebar.warning(f"• {log}")
+            elif "ERROR" in log:
+                st.sidebar.error(f"• {log}")
+            else:
+                st.sidebar.info(f"• {log}")
+    else:
+        st.sidebar.write("No agent activities yet. Ask a question to see the agents in action.")
+        
+    st.sidebar.markdown("---")
+    st.sidebar.header("About Makers AI")
+    st.sidebar.markdown("""
     This AI assistant is designed to help you navigate the Makers platform, 
     answer your questions, and provide recommendations.
     
     **Powered by Gemini, Groq & RAG.**
     """)
-    st.markdown("---")
-    st.header("⭐ Top Matches")
-
-    if 'recommendations' not in st.session_state or st.session_state.recommendations is None or not (st.session_state.recommendations.get("freelancers") or st.session_state.recommendations.get("articles")):
-        st.info("Top recommendations based on the conversation will appear here.")
-    else:
+    st.sidebar.markdown("---")
+    st.sidebar.header("⭐ All Ranked Matches")
+    
+    # Display all recommended freelancers in the sidebar under 'All Ranked Matches'
+    if 'recommendations' in st.session_state and st.session_state.recommendations is not None:
         freelancers = st.session_state.recommendations.get("freelancers", [])
-        articles = st.session_state.recommendations.get("articles", [])
-
+        
         if freelancers:
-            st.subheader("Recommended Freelancers")
-            for f_rec in freelancers:
-                f = f_rec.get("freelancer", {})
-                match_percentage = f_rec.get('match_percentage', 0)
-                star_rating = get_star_rating(match_percentage)
-                matched_on = f_rec.get('match_details', {})
+            # Function to extract match percentage from any freelancer format
+            def sidebar_get_match_percentage(f_rec):
+                if isinstance(f_rec, dict):
+                    if 'match_percentage' in f_rec:
+                        return f_rec.get('match_percentage', 0)
+                    elif 'match_strength' in f_rec:
+                        return f_rec.get('match_strength', {}).get('percentage', 0)
+                return 0
                 
-                # Consolidate matched keywords for display
-                matched_on_parts = []
-                for key, keywords in matched_on.items():
-                    if keywords:
-                        matched_on_parts.append(f"{', '.join(keywords)}")
-                matched_on_str = "; ".join(matched_on_parts)
-
-                st.markdown(f"""
+            # Sort freelancers by match percentage
+            sidebar_sorted_freelancers = sorted(freelancers, key=sidebar_get_match_percentage, reverse=True)
+            
+            # Display all freelancers in the sidebar
+            for f_rec in sidebar_sorted_freelancers:
+                # Handle both data structures
+                if 'freelancer' in f_rec:
+                    f = f_rec.get("freelancer", {})
+                    match_percentage = f_rec.get('match_percentage', 0)
+                    matched_on = f_rec.get('match_details', {})
+                    
+                    # Consolidate matched keywords for display
+                    matched_on_parts = []
+                    for key, keywords in matched_on.items():
+                        if keywords:
+                            matched_on_parts.append(f"{', '.join(keywords)}")
+                    matched_on_str = "; ".join(matched_on_parts)
+                else:
+                    f = f_rec
+                    match_percentage = f_rec.get('match_strength', {}).get('percentage', 0)
+                    matched_on = f_rec.get('match_strength', {}).get('matched_on', [])
+                    matched_on_str = ', '.join(matched_on)
+                
+                star_rating = get_star_rating(match_percentage)
+                
+                hourly_rate = f.get('hourly_rate_usd', 'N/A')
+                if hourly_rate != 'N/A':
+                    hourly_rate = f"${hourly_rate}/hr"
+                    
+                st.sidebar.markdown(f"""
                 <div class="freelancer-card-sidebar">
                     <h4>{f.get('name', 'N/A')}</h4>
                     <div class="title">{f.get('title', 'N/A')}</div>
                     <div class="details">
                         <b>Match:</b> {match_percentage:.0f}% {star_rating}<br>
+                        <b>Rate:</b> {hourly_rate}<br>
                         <b>Specialties:</b> {', '.join(f.get('specialties', ['N/A']))}
                     </div>
                     <div class="matched-on">
@@ -356,12 +376,119 @@ with st.sidebar:
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+        else:
+            st.sidebar.info("No freelancer matches yet. Ask a question to get recommendations.")
+
+# Display chat history first
+for i, message in enumerate(st.session_state.chat_history):
+    with st.chat_message(message["role"]):
+        # Display message content
+        st.markdown(message["content"])
         
-        if articles:
-            st.subheader("Suggested Articles")
-            for article_rec in articles:
-                article_name = article_rec.get('article_name', 'N/A')
-                display_name = article_name.replace('_', ' ').replace('.md', '').title()
-                st.markdown(f"📄 **{display_name}**")
-                if article_rec.get('matched_keywords'):
-                    st.caption(f"Keywords: {', '.join(article_rec.get('matched_keywords'))}")
+        # If this message has agent outcomes, update the right panel
+        if message["role"] == "assistant" and "agent_outcomes" in message and message["agent_outcomes"]:
+            # Update the session state with the newest agent outcomes
+            st.session_state.agent_logs = message["agent_outcomes"]
+        
+        # For assistant messages only, show recommendations and feedback buttons
+        if message["role"] == "assistant":
+            # Only show recommendations in the latest assistant message to avoid duplicates
+            if i == len(st.session_state.chat_history) - 1 and "recommendations" in message:
+                freelancers = message["recommendations"].get("freelancers", [])
+                articles = message["recommendations"].get("articles", [])
+                
+                # Display top freelancers in chat
+                if freelancers:
+                    st.write("--- ")
+                    st.subheader("✨ Top 3 Recommended Freelancers")
+                    
+                    # Handle both formats: direct freelancer objects or nested structure
+                    def get_match_percentage(f):
+                        if 'match_strength' in f:
+                            return f.get('match_strength', {}).get('percentage', 0)
+                        elif 'match_percentage' in f:
+                            return f.get('match_percentage', 0)
+                        return 0
+                        
+                    # Display top 3 freelancers in chat - strictly limit to 3
+                    top_freelancers = sorted(freelancers, key=get_match_percentage, reverse=True)[:3]  # Force limit to top 3
+                    for f in top_freelancers:
+                        # Extract data based on format
+                        if 'freelancer' in f:
+                            freelancer_data = f.get('freelancer', {})
+                            match_percentage = f.get('match_percentage', 0)
+                            matched_on_items = []
+                            for key, items in f.get('match_details', {}).items():
+                                if items:
+                                    matched_on_items.extend(items)
+                            matched_on = matched_on_items
+                        else:
+                            freelancer_data = f
+                            match_percentage = f.get('match_strength', {}).get('percentage', 0)
+                            matched_on = f.get('match_strength', {}).get('matched_on', [])
+                        
+                        # Display card
+                        star_rating = get_star_rating(match_percentage)
+                        hourly_rate = freelancer_data.get('hourly_rate_usd', 'N/A')
+                        if hourly_rate != 'N/A':
+                            hourly_rate = f"${hourly_rate}/hr"
+                            
+                        st.markdown(f"""
+                        <div class="freelancer-card-chat">
+                            <h4>{freelancer_data.get('name', 'N/A')}</h4>
+                            <div class="title">{freelancer_data.get('title', 'N/A')}</div>
+                            <div class="details">
+                                <b>Match:</b> {match_percentage:.0f}% {star_rating}<br>
+                                <b>Rate:</b> {hourly_rate}<br>
+                                <b>Specialties:</b> {', '.join(freelancer_data.get('specialties', ['N/A']))}<br>
+                            </div>
+                            <div class="matched-on">
+                                <i>Matched on: {', '.join(matched_on)}</i>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                # Display recommended articles
+                if articles:
+                    st.write("--- ")
+                    st.subheader("📚 Recommended Resources")
+                    for a in articles[:2]:
+                        article_name = a.get("article_name", "N/A")
+                        matched_keywords = a.get("matched_keywords", [])
+                        st.markdown(f"""
+                        <div class="article-card">
+                            <h4>{article_name.replace('_', ' ').replace('.md', '')}</h4>
+                            <div class="matched-on">
+                                <i>Matched on: {', '.join(matched_keywords)}</i>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+            
+            # Add feedback buttons for assistant messages (outside of any form)
+            feedback_col1, feedback_col2, spacer = st.columns([1,1,8])
+            with feedback_col1:
+                st.button("👍", key=f"chat_feedback_positive_{i}", on_click=handle_feedback, args=(i, "positive"))
+            with feedback_col2:
+                st.button("👎", key=f"chat_feedback_negative_{i}", on_click=handle_feedback, args=(i, "negative"))
+
+# Place the form for user input at the bottom
+with st.form(key="user_input_form"):
+    st.text_input(
+        "Ask me anything about freelance projects and the Makers platform!", 
+        placeholder="e.g., How do I get paid for a fixed-price project?", 
+        key="user_query_input"
+    )
+    st.form_submit_button(label="Ask", on_click=handle_submit)
+
+# Display recommended articles in the main section
+if 'recommendations' in st.session_state and st.session_state.recommendations is not None:
+    articles = st.session_state.recommendations.get("articles", [])
+    
+    if articles:
+        st.subheader("Recommended Articles")
+        for article_rec in articles:
+            article_name = article_rec.get('article_name', 'N/A')
+            display_name = article_name.replace('_', ' ').replace('.md', '').title()
+            st.markdown(f"📄 **{display_name}**")
+            if article_rec.get('matched_keywords'):
+                st.caption(f"Keywords: {', '.join(article_rec.get('matched_keywords'))}")

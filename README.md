@@ -19,6 +19,19 @@ Welcome to the Makers AI Assistant! This project is an intelligent, conversation
     *   **Prompt Injection Defense:** Incoming queries are scanned for common prompt injection patterns and rejected if detected.
     *   **Inappropriate Content Filtering:** Utilizes Gemini's built-in safety settings and Groq's `Llama-Guard-4` model to filter harmful or inappropriate content.
 
+## 🧠 Multi-Agent System Enhancements
+
+The assistant's backend has been significantly upgraded to a sophisticated multi-agent architecture, enhancing its reasoning capabilities and specialization:
+
+*   **🤖 Dedicated Agent Roles:**
+    *   **Research Agent:** Responsible for gathering information from the knowledge base and freelancer database.
+    *   **Customer-Facing Agent:** Interacts directly with the user, parses queries (including budget constraints), and formulates initial responses.
+    *   **Manager Agent:** Oversees the process, approves final responses, and handles escalations for sensitive topics.
+*   **🧱 Structured Data Flow:** Implemented `AgentState` to manage the flow of information between agents. This includes structured `research_findings` (containing freelancers, articles, and knowledge base chunks) and an `escalation_topic` field.
+*   **💰 Enhanced Budget Handling:** The Customer-Facing Agent now intelligently parses budget constraints from user queries (e.g., "find a developer under $50/hour"). It filters freelancer recommendations accordingly and provides specific lists of matching freelancers or clearly states if none are found.
+*   **🛡️ Sensitive Query Escalation:** Financial queries related to platform margins, fees, or commissions are now automatically detected by the Customer-Facing Agent and escalated to the Manager Agent. The Manager Agent provides a standardized, authoritative response, ensuring consistent and approved messaging for sensitive topics.
+*   **🎯 Targeted Recommendations:** The system now provides more relevant recommendations by distinguishing between requests for freelancers and general questions, and by incorporating article recommendations directly into chat responses when appropriate.
+
 ## 🛠️ Tech Stack
 
 *   **Frontend:** [Streamlit](https://streamlit.io/) - For the interactive web application.

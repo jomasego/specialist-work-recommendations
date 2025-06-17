@@ -1,91 +1,52 @@
-2025-06-12 13:12:28,870 CRITICAL: RAGService failed to initialize: RAGService initialization failed: FAISS index not found at data/vector_store.faiss. Please run the indexing script first. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:72]
-Traceback (most recent call last):
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 105, in __init__
-    self.index = self._load_faiss_index()
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 128, in _load_faiss_index
-    raise RAGServiceError(f"FAISS index not found at {INDEX_PATH}. Please run the indexing script first.")
-backend.rag_service.RAGServiceError: FAISS index not found at data/vector_store.faiss. Please run the indexing script first.
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/app.py", line 65, in <module>
-    rag_service = RAGService(db_service=db_service)
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 110, in __init__
-    raise RAGServiceError(f"RAGService initialization failed: {e}") from e
-backend.rag_service.RAGServiceError: RAGService initialization failed: FAISS index not found at data/vector_store.faiss. Please run the indexing script first.
-2025-06-12 13:12:28,875 INFO: RecommendationService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:76]
-2025-06-12 13:12:28,877 INFO: Starting Flask development server... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:288]
-2025-06-12 13:12:44,956 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:130]
-2025-06-12 13:12:44,957 INFO: New session_id generated: 5c5af080-6c7d-4f95-9a49-243fd3abab4f [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:151]
-2025-06-12 13:12:44,958 INFO: Session: 5c5af080-6c7d-4f95-9a49-243fd3abab4f, Query: 'I'm looking for a freelancer that will build a recommendation system for real estate investment products using python and ai agents', History items: 1, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:155]
-2025-06-12 13:12:44,958 INFO: Detected 'recommendation' intent for query: 'I'm looking for a freelancer that will build a recommendation system for real estate investment products using python and ai agents' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:122]
-2025-06-12 13:12:44,960 INFO: Responding with canned recommendation message. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:165]
-2025-06-12 13:12:44,999 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:220]
-2025-06-12 13:12:44,999 INFO: Successfully generated 2 freelancer and 0 article recommendations. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:239]
-2025-06-12 13:12:55,481 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:130]
-2025-06-12 13:12:55,481 INFO: New session_id generated: 61da5dbb-5b14-430a-be11-82e957d41896 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:151]
-2025-06-12 13:12:55,482 INFO: Session: 61da5dbb-5b14-430a-be11-82e957d41896, Query: 'Ok, i strongly need to have a budget under 80$/hour', History items: 3, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:155]
-2025-06-12 13:12:55,483 INFO: Detected 'question_answering' intent for query: 'Ok, i strongly need to have a budget under 80$/hour' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:124]
-2025-06-12 13:12:55,483 INFO: Cache miss for query: 'Ok, i strongly need to have a budget under 80$/hour'. Processing with RAG service. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:188]
-2025-06-12 13:12:55,484 ERROR: RAG service or Database service not available for /chat endpoint. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:190]
-2025-06-12 13:12:55,493 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:220]
-2025-06-12 13:12:55,494 INFO: Successfully generated 2 freelancer and 0 article recommendations. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:239]
-2025-06-12 13:14:44,334 INFO: Flask backend application starting up... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:37]
-2025-06-12 13:14:44,335 INFO: DatabaseService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:58]
-2025-06-12 13:14:44,396 CRITICAL: RAGService failed to initialize: RAGService initialization failed: FAISS index not found at data/vector_store.faiss. Please run the indexing script first. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:72]
-Traceback (most recent call last):
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 105, in __init__
-    self.api_total_cost = {
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 128, in _load_faiss_index
-    if not groq_api_key:
-backend.rag_service.RAGServiceError: FAISS index not found at data/vector_store.faiss. Please run the indexing script first.
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/app.py", line 65, in <module>
-    rag_service = RAGService(db_service=db_service)
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 110, in __init__
-    'gemini_no_info': 0.0,
-backend.rag_service.RAGServiceError: RAGService initialization failed: FAISS index not found at data/vector_store.faiss. Please run the indexing script first.
-2025-06-12 13:14:44,397 INFO: RecommendationService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:76]
-2025-06-12 13:14:44,398 INFO: Starting Flask development server... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:288]
-2025-06-12 13:14:46,683 INFO: Flask backend application starting up... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:37]
-2025-06-12 13:14:46,684 INFO: DatabaseService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:58]
-2025-06-12 13:14:46,732 CRITICAL: RAGService failed to initialize: RAGService initialization failed: 'RAGService' object has no attribute '_build_index' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:72]
-Traceback (most recent call last):
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 84, in __init__
-    self._build_index()
-AttributeError: 'RAGService' object has no attribute '_build_index'
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/app.py", line 65, in <module>
-    rag_service = RAGService(db_service=db_service)
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 119, in __init__
-    raise RAGServiceError(f"RAGService initialization failed: {e}") from e
-backend.rag_service.RAGServiceError: RAGService initialization failed: 'RAGService' object has no attribute '_build_index'
-2025-06-12 13:14:46,734 INFO: RecommendationService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:76]
-2025-06-12 13:14:46,735 INFO: Starting Flask development server... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:288]
-2025-06-12 13:16:39,185 INFO: Flask backend application starting up... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:37]
-2025-06-12 13:16:39,186 INFO: DatabaseService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:58]
-2025-06-12 13:16:39,233 CRITICAL: RAGService failed to initialize: RAGService initialization failed: 'RAGService' object has no attribute '_build_index' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:72]
-Traceback (most recent call last):
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 84, in __init__
-    self._build_index()
-AttributeError: 'RAGService' object has no attribute '_build_index'
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/app.py", line 65, in <module>
-    rag_service = RAGService(db_service=db_service)
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 119, in __init__
-    raise RAGServiceError(f"RAGService initialization failed: {e}") from e
-backend.rag_service.RAGServiceError: RAGService initialization failed: 'RAGService' object has no attribute '_build_index'
-2025-06-12 13:16:39,236 INFO: RecommendationService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:76]
-2025-06-12 13:16:39,237 INFO: Starting Flask development server... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:288]
-2025-06-12 13:17:03,327 INFO: Flask backend application starting up... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:37]
-2025-06-12 13:17:03,328 INFO: DatabaseService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:58]
+2025-06-17 01:37:55,074 INFO: DatabaseService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:59]
+2025-06-17 01:37:55,123 INFO: RAGService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:67]
+2025-06-17 01:37:55,126 INFO: RecommendationService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:77]
+2025-06-17 01:37:55,129 INFO: Starting Flask development server via `python -m backend`... [in /home/jomasego/personalized-recommendation-capabilities/backend/__main__.py:8]
+2025-06-17 01:37:55,129 INFO: Starting Flask development server with console logging. No file redirection. [in /home/jomasego/personalized-recommendation-capabilities/backend/__main__.py:15]
+2025-06-17 01:38:24,047 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:131]
+2025-06-17 01:38:24,048 INFO: New session_id generated: 30384e73-5c95-40d8-aaed-1145558ad33b [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:152]
+2025-06-17 01:38:24,048 INFO: Session: 30384e73-5c95-40d8-aaed-1145558ad33b, Query: 'I'm looking for a freelancer that will build a recommendation system for real estate investment products using python and ai agents', History items: 1, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:156]
+2025-06-17 01:38:24,048 INFO: Invoking multi-agent graph for query: 'I'm looking for a freelancer that will build a recommendation system for real estate investment products using python and ai agents' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:159]
+2025-06-17 01:38:26,610 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:203]
+2025-06-17 01:38:26,611 INFO: Successfully generated 2 freelancer and 0 article recommendations for history. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:222]
+2025-06-17 02:00:50,596 INFO: Flask backend application starting up... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:38]
+2025-06-17 02:00:50,607 INFO: DatabaseService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:59]
+2025-06-17 02:00:51,075 INFO: RAGService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:67]
+2025-06-17 02:00:51,105 INFO: RecommendationService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:77]
+2025-06-17 02:00:51,126 INFO: Starting Flask development server via `python -m backend`... [in /home/jomasego/personalized-recommendation-capabilities/backend/__main__.py:8]
+2025-06-17 02:00:51,127 INFO: Starting Flask development server with console logging. No file redirection. [in /home/jomasego/personalized-recommendation-capabilities/backend/__main__.py:15]
+2025-06-17 10:59:29,550 INFO: Flask backend application starting up... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:38]
+2025-06-17 10:59:29,552 INFO: DatabaseService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:59]
+2025-06-17 10:59:29,602 INFO: RAGService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:67]
+2025-06-17 10:59:29,603 INFO: RecommendationService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:77]
+2025-06-17 10:59:29,604 INFO: Starting Flask development server via `python -m backend`... [in /home/jomasego/personalized-recommendation-capabilities/backend/__main__.py:8]
+2025-06-17 10:59:29,604 INFO: Starting Flask development server with console logging. No file redirection. [in /home/jomasego/personalized-recommendation-capabilities/backend/__main__.py:15]
+2025-06-17 11:02:40,537 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:131]
+2025-06-17 11:02:40,547 INFO: New session_id generated: e72600b5-c6c2-4d74-98aa-aeddc29cf1c2 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:152]
+2025-06-17 11:02:40,548 INFO: Session: e72600b5-c6c2-4d74-98aa-aeddc29cf1c2, Query: 'I'm looking for a freelancer that will build a recommendation system for real estate investment products using python and ai agents', History items: 1, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:156]
+2025-06-17 11:02:40,548 INFO: Invoking multi-agent graph for query: 'I'm looking for a freelancer that will build a recommendation system for real estate investment products using python and ai agents' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:159]
+2025-06-17 11:02:43,405 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:203]
+2025-06-17 11:02:43,407 INFO: Successfully generated 3 freelancer and 0 article recommendations for history. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:222]
+2025-06-17 11:03:34,674 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:131]
+2025-06-17 11:03:34,674 INFO: New session_id generated: b890d857-181f-4d70-9625-7f8741ac1c0e [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:152]
+2025-06-17 11:03:34,675 INFO: Session: b890d857-181f-4d70-9625-7f8741ac1c0e, Query: 'show me all the freelancers there are in makers', History items: 3, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:156]
+2025-06-17 11:03:34,675 INFO: Invoking multi-agent graph for query: 'show me all the freelancers there are in makers' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:159]
+2025-06-17 11:03:36,846 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:203]
+2025-06-17 11:03:36,847 INFO: Successfully generated 3 freelancer and 0 article recommendations for history. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:222]
+2025-06-17 11:30:14,218 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:131]
+2025-06-17 11:30:14,232 INFO: New session_id generated: 64ce84ed-1255-453e-991b-acdc299aa6e1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:152]
+2025-06-17 11:30:14,232 INFO: Session: 64ce84ed-1255-453e-991b-acdc299aa6e1, Query: 'I'm looking for a freelancer who will create a matchmaking platform in vanilla javascript for me', History items: 1, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:156]
+2025-06-17 11:30:14,233 INFO: Invoking multi-agent graph for query: 'I'm looking for a freelancer who will create a matchmaking platform in vanilla javascript for me' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:159]
+2025-06-17 11:30:16,890 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:203]
+2025-06-17 11:30:16,892 INFO: Successfully generated 3 freelancer and 0 article recommendations for history. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:222]
+2025-06-17 11:35:53,588 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:131]
+2025-06-17 11:35:53,590 INFO: New session_id generated: f2c6dbc7-30bf-4592-85d0-87853dea5201 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:152]
+2025-06-17 11:35:53,590 INFO: Session: f2c6dbc7-30bf-4592-85d0-87853dea5201, Query: 'I'm looking for a freelancer that will build a recommendation system for real estate investment products using python and ai agents', History items: 1, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:156]
+2025-06-17 11:35:53,590 INFO: Invoking multi-agent graph for query: 'I'm looking for a freelancer that will build a recommendation system for real estate investment products using python and ai agents' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:159]
+2025-06-17 11:35:56,309 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:203]
+2025-06-17 11:35:56,310 INFO: Successfully generated 3 freelancer and 0 article recommendations for history. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:222]
+2025-06-17 11:50:16,302 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:131]
+2025-06-17 11:50:16,320 INFO: New session_id generated: d1ebfff3-2b6f-4a34-97e2-e1fe4fc9a40e [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:152]
+2025-06-17 11:50:16,320 INFO: Session: d1ebfff3-2b6f-4a34-97e2-e1fe4fc9a40e, Query: 'I'm looking for a freelancer that will build a recommendation system for real estate investment products using python and ai agents', History items: 1, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:156]
+2025-06-17 11:50:16,321 INFO: Invoking multi-agent graph for query: 'I'm looking for a freelancer that will build a recommendation system for real estate investment products using python and ai agents' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:159]
+2025-06-17 11:50:19,720 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:203]

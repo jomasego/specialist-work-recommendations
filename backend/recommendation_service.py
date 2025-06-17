@@ -46,12 +46,12 @@ class RecommendationService:
         """Extracts simple keywords from text."""
         text = text.lower()
         # Remove punctuation and split into words
-        words = re.findall(r'\b\w+\b', text)
+        words = re.findall(r'[\w.-]+', text) # Keep words with dots or hyphens
                 # Simple stop word list
         stop_words = set(['a', 'an', 'the', 'in', 'on', 'at', 'for', 'to', 'of', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'is', 'are', 'was', 'were', 'and', 'or', 'but', 'if', 'so', 'that', 'about', 'with', 'from', 'into', 'during', 'including', 'unless', 'while', 'as', 'until', 'up', 'down', 'out', 'through', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now'])
         return set(word for word in words if word not in stop_words)
 
-    def _calculate_recommendations(self, text_to_analyze, k_freelancers=3, k_articles=2):
+    def _calculate_recommendations(self, text_to_analyze, k_freelancers=10, k_articles=2):
         """
         Core logic to calculate recommendations based on a given text.
         """
@@ -131,7 +131,7 @@ class RecommendationService:
             "articles": article_recs
         }
 
-    def get_recommendations_for_history(self, chat_history, k_freelancers=3, k_articles=2):
+    def get_recommendations_for_history(self, chat_history, k_freelancers=10, k_articles=2):
         """
         Generates recommendations based on the full conversation history.
         This is for the persistent sidebar.
@@ -143,7 +143,7 @@ class RecommendationService:
         full_conversation_text = " ".join([msg['content'] for msg in chat_history])
         return self._calculate_recommendations(full_conversation_text, k_freelancers, k_articles)
 
-    def get_recommendations_for_query(self, current_query, k_freelancers=3, k_articles=2):
+    def get_recommendations_for_query(self, current_query, k_freelancers=10, k_articles=2):
         """
         Generates recommendations based on a single user query.
         This is for the in-chat, contextual recommendations.

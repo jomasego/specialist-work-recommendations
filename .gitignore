@@ -87,6 +87,11 @@ celerybeat.pid
 
 # Environments
 .env
+
+# Project-specific ignores
+/case-study-ai-specialist.pdf
+/preparation.md
+/exercise_walkthrough.md
 .venv
 env/
 venv/

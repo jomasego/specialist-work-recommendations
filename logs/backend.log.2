@@ -1,16 +1,57 @@
-2025-06-12 13:33:44,435 CRITICAL: RAGService failed to initialize: RAGService initialization failed: 'RAGService' object has no attribute '_build_index' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:72]
-Traceback (most recent call last):
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 84, in __init__
-    self._build_index()
-AttributeError: 'RAGService' object has no attribute '_build_index'
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/app.py", line 65, in <module>
-    rag_service = RAGService(db_service=db_service)
-  File "/home/jomasego/personalized-recommendation-capabilities/backend/rag_service.py", line 119, in __init__
-    raise RAGServiceError(f"RAGService initialization failed: {e}") from e
-backend.rag_service.RAGServiceError: RAGService initialization failed: 'RAGService' object has no attribute '_build_index'
-2025-06-12 13:33:44,440 INFO: RecommendationService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:76]
-2025-06-12 13:33:44,441 INFO: Starting Flask development server... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:288]
+2025-06-17 23:59:32,405 INFO: New session_id generated: 67d1c2ef-df37-4eb2-9198-4a42f0595bce [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:152]
+2025-06-17 23:59:32,415 INFO: Session: 67d1c2ef-df37-4eb2-9198-4a42f0595bce, Query: 'I need a JavaScript developerç', History items: 1, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:156]
+2025-06-17 23:59:32,416 INFO: Invoking multi-agent graph for query: 'I need a JavaScript developerç' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:159]
+2025-06-17 23:59:32,480 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:203]
+2025-06-17 23:59:32,487 INFO: Successfully generated 10 freelancer and 0 article recommendations for history. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:222]
+2025-06-17 23:59:44,353 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:131]
+2025-06-17 23:59:44,353 INFO: New session_id generated: 492b4322-945b-4ac6-a789-7d6449da9f06 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:152]
+2025-06-17 23:59:44,353 INFO: Session: 492b4322-945b-4ac6-a789-7d6449da9f06, Query: 'I need a JavaScript developer', History items: 1, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:156]
+2025-06-17 23:59:44,353 INFO: Invoking multi-agent graph for query: 'I need a JavaScript developer' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:159]
+2025-06-17 23:59:44,363 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:203]
+2025-06-17 23:59:44,365 INFO: Successfully generated 10 freelancer and 0 article recommendations for history. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:222]
+2025-06-18 00:03:03,583 INFO: Flask backend application starting up... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:38]
+2025-06-18 00:03:03,585 INFO: DatabaseService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:59]
+2025-06-18 00:03:03,627 INFO: RAGService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:67]
+2025-06-18 00:03:03,629 INFO: RecommendationService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:77]
+2025-06-18 00:03:03,630 INFO: Starting Flask development server via `python -m backend`... [in /home/jomasego/personalized-recommendation-capabilities/backend/__main__.py:8]
+2025-06-18 00:03:03,630 INFO: Starting Flask development server with console logging. No file redirection. [in /home/jomasego/personalized-recommendation-capabilities/backend/__main__.py:15]
+2025-06-18 00:03:31,231 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:131]
+2025-06-18 00:03:31,238 INFO: New session_id generated: 39a605cc-50c2-485e-abd0-4edd809e89bc [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:152]
+2025-06-18 00:03:31,238 INFO: Session: 39a605cc-50c2-485e-abd0-4edd809e89bc, Query: 'I need a JavaScript developer', History items: 1, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:156]
+2025-06-18 00:03:31,239 INFO: Invoking multi-agent graph for query: 'I need a JavaScript developer' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:159]
+2025-06-18 00:03:31,295 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:203]
+2025-06-18 00:03:31,300 INFO: Successfully generated 10 freelancer and 0 article recommendations for history. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:222]
+2025-06-18 00:05:55,784 INFO: Flask backend application starting up... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:38]
+2025-06-18 00:05:55,786 INFO: DatabaseService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:59]
+2025-06-18 00:05:55,827 INFO: RAGService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:67]
+2025-06-18 00:05:55,828 INFO: RecommendationService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:77]
+2025-06-18 00:05:55,830 INFO: Starting Flask development server via `python -m backend`... [in /home/jomasego/personalized-recommendation-capabilities/backend/__main__.py:8]
+2025-06-18 00:05:55,830 INFO: Starting Flask development server with console logging. No file redirection. [in /home/jomasego/personalized-recommendation-capabilities/backend/__main__.py:15]
+2025-06-18 00:06:21,032 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:131]
+2025-06-18 00:06:21,036 INFO: New session_id generated: c9da3b37-8c20-4238-9834-1ed50866e8a4 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:152]
+2025-06-18 00:06:21,036 INFO: Session: c9da3b37-8c20-4238-9834-1ed50866e8a4, Query: 'I need a JavaScript developer', History items: 1, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:156]
+2025-06-18 00:06:21,036 INFO: Invoking multi-agent graph for query: 'I need a JavaScript developer' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:159]
+2025-06-18 00:06:21,076 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:203]
+2025-06-18 00:06:21,082 INFO: Successfully generated 10 freelancer and 0 article recommendations for history. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:222]
+2025-06-18 00:06:34,829 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:131]
+2025-06-18 00:06:34,830 INFO: New session_id generated: db5edc3e-a584-4aa9-afc7-96bb4b52364f [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:152]
+2025-06-18 00:06:34,830 INFO: Session: db5edc3e-a584-4aa9-afc7-96bb4b52364f, Query: 'they also need to know javascript', History items: 3, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:156]
+2025-06-18 00:06:34,830 INFO: Invoking multi-agent graph for query: 'they also need to know javascript' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:159]
+2025-06-18 00:06:34,837 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:203]
+2025-06-18 00:06:34,839 INFO: Successfully generated 10 freelancer and 0 article recommendations for history. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:222]
+2025-06-18 00:16:44,168 INFO: Flask backend application starting up... [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:38]
+2025-06-18 00:16:44,170 INFO: DatabaseService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:59]
+2025-06-18 00:16:44,209 INFO: RAGService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:67]
+2025-06-18 00:16:44,211 INFO: RecommendationService initialized successfully. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:77]
+2025-06-18 00:16:44,214 INFO: Starting Flask development server via `python -m backend`... [in /home/jomasego/personalized-recommendation-capabilities/backend/__main__.py:8]
+2025-06-18 00:16:44,214 INFO: Starting Flask development server with console logging. No file redirection. [in /home/jomasego/personalized-recommendation-capabilities/backend/__main__.py:15]
+2025-06-18 00:17:33,722 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:131]
+2025-06-18 00:17:33,728 INFO: New session_id generated: 427eebae-1103-4339-92cd-62077a22f287 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:152]
+2025-06-18 00:17:33,729 INFO: Session: 427eebae-1103-4339-92cd-62077a22f287, Query: 'I'm looking for a freelancer who will create a matchmaking platform in vanilla javascript for me', History items: 1, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:156]
+2025-06-18 00:17:33,729 INFO: Invoking multi-agent graph for query: 'I'm looking for a freelancer who will create a matchmaking platform in vanilla javascript for me' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:159]
+2025-06-18 00:17:36,689 INFO: POST /recommendations received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:203]
+2025-06-18 00:17:36,696 INFO: Successfully generated 10 freelancer and 0 article recommendations for history. [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:222]
+2025-06-18 00:18:08,108 INFO: POST /chat received from 127.0.0.1 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:131]
+2025-06-18 00:18:08,109 INFO: New session_id generated: c68d2d52-d37c-49b1-9de9-2dfb782a0a50 [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:152]
+2025-06-18 00:18:08,109 INFO: Session: c68d2d52-d37c-49b1-9de9-2dfb782a0a50, Query: 'ok, i need for them to get paid less than 90$/hour', History items: 3, Model: gemini-1.5-flash-latest [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:156]
+2025-06-18 00:18:08,110 INFO: Invoking multi-agent graph for query: 'ok, i need for them to get paid less than 90$/hour' [in /home/jomasego/personalized-recommendation-capabilities/backend/app.py:159]
