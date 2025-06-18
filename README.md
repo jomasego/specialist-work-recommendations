@@ -32,6 +32,16 @@ The assistant's backend has been significantly upgraded to a sophisticated multi
 *   **🛡️ Sensitive Query Escalation:** Financial queries related to platform margins, fees, or commissions are now automatically detected by the Customer-Facing Agent and escalated to the Manager Agent. The Manager Agent provides a standardized, authoritative response, ensuring consistent and approved messaging for sensitive topics.
 *   **🎯 Targeted Recommendations:** The system now provides more relevant recommendations by distinguishing between requests for freelancers and general questions, and by incorporating article recommendations directly into chat responses when appropriate.
 
+## ✨ Recent UI/UX Enhancements
+
+*   **💬 Embedded Recommendations:** Freelancer and article cards are now embedded directly within the same chat bubble as the AI's response, providing a more integrated and seamless experience.
+*   **🧹 Cleaner Agent Responses:** Meta-commentary and extraneous prefaces from the Manager Agent (e.g., "Here's a refined response...") are now stripped, presenting only the core message to the user.
+*   **📊 Optimized Sidebar Layout:**
+    *   The sidebar section has been renamed to "Cost, Agentic workflow, and Recommendations Monitoring."
+    *   Duplicate "Cost Evolution" graphs have been removed.
+    *   The API Cost Evolution chart is now correctly positioned under the new header and its height has been adjusted for a more compact and user-friendly sidebar.
+*   **👇 Anchored Chat Input:** The chat input field now remains fixed at the bottom of the conversation thread, ensuring it's always accessible.
+
 ## 🛠️ Tech Stack
 
 *   **Frontend:** [Streamlit](https://streamlit.io/) - For the interactive web application.
@@ -83,7 +93,7 @@ Follow these steps to get the project running on your local machine.
 
 1.  **Start the backend server:**
     ```bash
-    python backend/app.py
+    python -m backend
     ```
 
 2.  **Start the frontend application (in a new terminal):**

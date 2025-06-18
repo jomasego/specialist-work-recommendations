@@ -164,6 +164,14 @@ def handle_chat():
         "research_findings": "",
         "agent_outcomes": [],
         "final_response": "",
+        "api_token_usage": { # Initialize token usage for the new session
+            'embedding_tokens': 0,
+            'gemini_input_tokens': 0,
+            'gemini_output_tokens': 0,
+            'groq_input_tokens': 0,
+            'groq_output_tokens': 0,
+            'total_cost': 0.0
+        }
     }
 
     try:
@@ -196,7 +204,8 @@ def handle_chat():
                 "agent_outcomes": final_state.get("agent_outcomes", []),  # For frontend visualization
                 "session_id": session_id,
                 "intent": "multi_agent_workflow", # New intent type
-                "query_recommendations": recommendations  # Add recommendations to the response
+                "query_recommendations": recommendations,  # Add recommendations to the response
+                "api_token_usage": final_state.get("api_token_usage", {}) # Include token usage in response
             }
         except Exception as e:
             error_trace = traceback.format_exc()

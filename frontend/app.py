@@ -1,6 +1,9 @@
 import streamlit as st
 import requests
+import logging
+import html
 import os
+import pandas as pd
 import json
 
 # --- Page Configuration ---
@@ -104,6 +107,8 @@ if 'recommendations' not in st.session_state:
     st.session_state.recommendations = None # To store fetched recommendations
 if 'user_id' not in st.session_state: # Example user_id, can be dynamic
     st.session_state.user_id = "user_123"
+if 'api_call_costs' not in st.session_state:
+    st.session_state.api_call_costs = [] # To store total_cost after each API call
 
 
 # --- API Helper Functions ---
@@ -247,6 +252,24 @@ def handle_submit():
             print(f"Updating agent logs with {len(agent_outcomes)} items")
             st.session_state.agent_logs = agent_outcomes
 
+        # Update API call costs for graph
+        if "api_token_usage" in backend_response and isinstance(backend_response["api_token_usage"], dict):
+            current_call_cost = backend_response["api_token_usage"].get("total_cost", 0.0)
+            # We want to show accumulated cost, so we add to the previous total if it exists
+            previous_total_cost = st.session_state.api_call_costs[-1] if st.session_state.api_call_costs else 0.0
+            # The backend already returns the *accumulated* cost for the current agent graph run.
+            # For a series of chat turns, we need to track the cost of *each turn* and then accumulate *that*.
+            # However, the current backend `api_token_usage` in the response is the *total for that specific call's graph run*,
+            # not an accumulation over multiple chat turns from the backend's perspective.
+            # For simplicity in the frontend, we'll assume each 'total_cost' from the backend is the cost of *that specific interaction*.
+            # We will then accumulate these on the frontend side for the graph.
+            # Let's re-evaluate: The backend's `api_token_usage` in the response *is* the total for that call.
+            # The `multi_agent_service` initializes `api_token_usage` to zeros for each `invoke` call if not passed in.
+            # The `backend/app.py` *does* initialize it to zeros before calling `agent_graph.invoke`.
+            # So, `backend_response["api_token_usage"]['total_cost']` is the cost of the *current* interaction only.
+            st.session_state.api_call_costs.append(current_call_cost) 
+            print(f"DEBUG: Appended cost {current_call_cost} to api_call_costs. New list: {st.session_state.api_call_costs}")
+
         # After processing the main response, update the global recommendations for the sidebar
         update_recommendations(force_update=True)
 
@@ -272,9 +295,26 @@ except Exception as e:
     st.warning(f"Could not load logo from {logo_path}. Please ensure the file exists. Error: {e}")
 
 # --- Sidebar for Recommendations and Controls ---
-sidebar_col.title("Tools & Recommendations 🛠️")
+sidebar_col.title("Cost, Agentic workflow, and Recommendations Monitoring")
 
 sidebar_col.markdown("--- ")
+# Cost Evolution Chart
+sidebar_col.markdown("### 📈 API Cost Evolution")
+if 'api_call_costs' in st.session_state and st.session_state.api_call_costs:
+    call_numbers = list(range(1, len(st.session_state.api_call_costs) + 1))
+    accumulated_costs_for_chart = []
+    current_total_chart = 0
+    for cost_item in st.session_state.api_call_costs:
+        current_total_chart += cost_item # Cost from backend is per-interaction
+        accumulated_costs_for_chart.append(current_total_chart)
+
+    cost_data = {"Interaction": call_numbers, "Accumulated Cost ($)": accumulated_costs_for_chart}
+    cost_df = pd.DataFrame(cost_data)
+    sidebar_col.line_chart(cost_df.set_index("Interaction"), height=200)
+else:
+    sidebar_col.write("No API calls made yet.")
+sidebar_col.markdown("--- ")
+
 sidebar_col.info("Model selection is now automated by the multi-agent backend.")
 
 # Set up the main title in the main content area
@@ -379,91 +419,98 @@ with st.sidebar:
         else:
             st.sidebar.info("No freelancer matches yet. Ask a question to get recommendations.")
 
-# Display chat history first
+# Function to extract match percentage from any freelancer format
+def get_match_percentage(f_rec):
+    if isinstance(f_rec, dict):
+        if 'match_percentage' in f_rec: # New structure from RAG tool
+            return f_rec.get('match_percentage', 0)
+        elif 'match_strength' in f_rec: # Older structure from sidebar/direct recs
+            return f_rec.get('match_strength', {}).get('percentage', 0)
+    return 0
+
+# Display chat messages from history
 for i, message in enumerate(st.session_state.chat_history):
-    with st.chat_message(message["role"]):
-        # Display message content
-        st.markdown(message["content"])
-        
-        # If this message has agent outcomes, update the right panel
-        if message["role"] == "assistant" and "agent_outcomes" in message and message["agent_outcomes"]:
-            # Update the session state with the newest agent outcomes
-            st.session_state.agent_logs = message["agent_outcomes"]
-        
-        # For assistant messages only, show recommendations and feedback buttons
-        if message["role"] == "assistant":
-            # Only show recommendations in the latest assistant message to avoid duplicates
-            if i == len(st.session_state.chat_history) - 1 and "recommendations" in message:
-                freelancers = message["recommendations"].get("freelancers", [])
-                articles = message["recommendations"].get("articles", [])
-                
-                # Display top freelancers in chat
-                if freelancers:
-                    st.write("--- ")
-                    st.subheader("✨ Top 3 Recommended Freelancers")
+    with main_content.chat_message(message["role"]):
+        assistant_content = message["content"]
+        cards_html_parts = []
+
+        # Prepare HTML for query-specific recommendations if available
+        if message["role"] == "assistant" and "recommendations" in message and message["recommendations"]:
+            query_recs = message["recommendations"]
+            freelancers = query_recs.get("freelancers", [])
+            articles = query_recs.get("articles", [])
+            # kb_chunks = query_recs.get("kb_chunks", []) # Not currently displayed as cards
+
+            if freelancers:
+                cards_html_parts.append("<br><hr><b>✨ Top Recommended Freelancers:</b>")
+                # Function to extract match percentage (defined earlier, ensure it's in scope or redefine if necessary)
+                # For simplicity, assuming get_match_percentage is available or defined globally/locally if needed.
+                top_freelancers = sorted(freelancers, key=get_match_percentage, reverse=True)[:3]
+                for f_rec in top_freelancers:
+                    if 'freelancer' in f_rec: # New structure
+                        f_data = f_rec.get("freelancer", {})
+                        match_percentage = f_rec.get('match_percentage', 0)
+                        matched_on_details = f_rec.get('match_details', {})
+                        matched_on_parts = [f"{', '.join(kw)}" for k, kw in matched_on_details.items() if kw]
+                        matched_on_str = "; ".join(matched_on_parts)
+                    else: # Old structure (fallback)
+                        f_data = f_rec
+                        match_percentage = f_rec.get('match_strength', {}).get('percentage', 0)
+                        matched_on_list = f_rec.get('match_strength', {}).get('matched_on', [])
+                        matched_on_str = ', '.join(matched_on_list)
                     
-                    # Handle both formats: direct freelancer objects or nested structure
-                    def get_match_percentage(f):
-                        if 'match_strength' in f:
-                            return f.get('match_strength', {}).get('percentage', 0)
-                        elif 'match_percentage' in f:
-                            return f.get('match_percentage', 0)
-                        return 0
-                        
-                    # Display top 3 freelancers in chat - strictly limit to 3
-                    top_freelancers = sorted(freelancers, key=get_match_percentage, reverse=True)[:3]  # Force limit to top 3
-                    for f in top_freelancers:
-                        # Extract data based on format
-                        if 'freelancer' in f:
-                            freelancer_data = f.get('freelancer', {})
-                            match_percentage = f.get('match_percentage', 0)
-                            matched_on_items = []
-                            for key, items in f.get('match_details', {}).items():
-                                if items:
-                                    matched_on_items.extend(items)
-                            matched_on = matched_on_items
-                        else:
-                            freelancer_data = f
-                            match_percentage = f.get('match_strength', {}).get('percentage', 0)
-                            matched_on = f.get('match_strength', {}).get('matched_on', [])
-                        
-                        # Display card
-                        star_rating = get_star_rating(match_percentage)
-                        hourly_rate = freelancer_data.get('hourly_rate_usd', 'N/A')
-                        if hourly_rate != 'N/A':
-                            hourly_rate = f"${hourly_rate}/hr"
-                            
-                        st.markdown(f"""
-                        <div class="freelancer-card-chat">
-                            <h4>{freelancer_data.get('name', 'N/A')}</h4>
-                            <div class="title">{freelancer_data.get('title', 'N/A')}</div>
-                            <div class="details">
-                                <b>Match:</b> {match_percentage:.0f}% {star_rating}<br>
-                                <b>Rate:</b> {hourly_rate}<br>
-                                <b>Specialties:</b> {', '.join(freelancer_data.get('specialties', ['N/A']))}<br>
-                            </div>
-                            <div class="matched-on">
-                                <i>Matched on: {', '.join(matched_on)}</i>
-                            </div>
+                    star_rating = get_star_rating(match_percentage)
+                    hourly_rate = f_data.get('hourly_rate_usd', 'N/A')
+                    if hourly_rate != 'N/A': hourly_rate = f"${hourly_rate}/hr"
+
+                    cards_html_parts.append(f"""
+                    <div class="freelancer-card-chat">
+                        <h4>{html.escape(str(f_data.get('name', 'N/A')))}</h4>
+                        <div class="title">{html.escape(str(f_data.get('title', 'N/A')))}</div>
+                        <div class="details">
+                            <b>Match:</b> {match_percentage:.0f}% {star_rating}<br>
+                            <b>Rate:</b> {html.escape(str(hourly_rate))}<br>
+                            <b>Specialties:</b> {html.escape(str(', '.join(f_data.get('specialties', ['N/A']))))}
                         </div>
-                        """, unsafe_allow_html=True)
-                
-                # Display recommended articles
-                if articles:
-                    st.write("--- ")
-                    st.subheader("📚 Recommended Resources")
-                    for a in articles[:2]:
-                        article_name = a.get("article_name", "N/A")
-                        matched_keywords = a.get("matched_keywords", [])
-                        st.markdown(f"""
-                        <div class="article-card">
-                            <h4>{article_name.replace('_', ' ').replace('.md', '')}</h4>
-                            <div class="matched-on">
-                                <i>Matched on: {', '.join(matched_keywords)}</i>
-                            </div>
+                        <div class="matched-on">
+                            <i>Matched on: {html.escape(str(matched_on_str))}</i>
                         </div>
-                        """, unsafe_allow_html=True)
+                    </div>
+                    """)
             
+            if articles:
+                cards_html_parts.append("<br><hr><b>📚 Recommended Articles:</b>")
+                for article_rec in articles[:3]: # Limit to top 3 articles as well
+                    article_name = article_rec.get('article_name', 'N/A').replace('_', ' ').replace('.md', '').title()
+                    article_snippet = article_rec.get('snippet', 'Click to read more.')
+                    # Simplistic article card, can be enhanced with CSS class .article-card-chat
+                    cards_html_parts.append(f"""
+                    <div class="freelancer-card-chat"> 
+                        <h4>📄 {html.escape(str(article_name))}</h4>
+                        <p style='font-size:0.9em;'>{html.escape(str(article_snippet[:150]))}...</p>
+                    </div>
+                    """)
+
+        main_content.markdown(assistant_content, unsafe_allow_html=True) # Render main agent text
+
+        if cards_html_parts: # If there are cards to display, render each part
+            for part_html in cards_html_parts:
+                 main_content.markdown(part_html, unsafe_allow_html=True)
+
+        # Display sources if available (can be an expander within the message or separate)
+        if message["role"] == "assistant" and message.get("sources"):
+            with main_content.expander("View Sources"):
+                for source in message["sources"]:
+                    main_content.markdown(f"- {source['name']} (Snippet: _{source.get('snippet', 'N/A')}_)")
+
+        # Feedback buttons
+        if message["role"] == "assistant":
+            feedback_key_suffix = f"_feedback_{i}"
+            cols = main_content.columns(10)
+            if cols[0].button("👍", key=f"positive{feedback_key_suffix}", help="Good response"):
+                handle_feedback(i, "positive")
+            if cols[1].button("👎", key=f"negative{feedback_key_suffix}", help="Bad response"):
+                handle_feedback(i, "negative")
             # Add feedback buttons for assistant messages (outside of any form)
             feedback_col1, feedback_col2, spacer = st.columns([1,1,8])
             with feedback_col1:
@@ -479,16 +526,3 @@ with st.form(key="user_input_form"):
         key="user_query_input"
     )
     st.form_submit_button(label="Ask", on_click=handle_submit)
-
-# Display recommended articles in the main section
-if 'recommendations' in st.session_state and st.session_state.recommendations is not None:
-    articles = st.session_state.recommendations.get("articles", [])
-    
-    if articles:
-        st.subheader("Recommended Articles")
-        for article_rec in articles:
-            article_name = article_rec.get('article_name', 'N/A')
-            display_name = article_name.replace('_', ' ').replace('.md', '').title()
-            st.markdown(f"📄 **{display_name}**")
-            if article_rec.get('matched_keywords'):
-                st.caption(f"Keywords: {', '.join(article_rec.get('matched_keywords'))}")
