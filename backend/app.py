@@ -175,54 +175,57 @@ def handle_chat():
     }
 
     try:
-        import traceback
-        try:
-            print("Debug: About to invoke agent_graph with state:", initial_state)
-            final_state = agent_graph.invoke(initial_state)
-            print("Debug: agent_graph.invoke completed successfully")
+        # import traceback # traceback is already available via app.logger with exc_info=True
+
+        # --- Invoke the agent graph ---
+        app.logger.debug(f"Attempting to invoke agent_graph with initial state for session {session_id}")
+        final_state = agent_graph.invoke(initial_state)
+        app.logger.debug(f"Agent graph invocation completed for session {session_id}")
             
-            # Get recommendations for the current query
-            recommendations = {}
-            if recommendation_service:
-                try:
-                    # Get recommendations based on the current query and chat history
-                    recs = recommendation_service.get_recommendations_for_query(
-                        current_query=current_query,
-                        k_freelancers=10,  # Get top 10 freelancers
-                        k_articles=3       # Get top 3 articles
-                    )
-                    recommendations = {
-                        "freelancers": recs.get("freelancers", []),
-                        "articles": recs.get("articles", [])
-                    }
-                except Exception as e:
-                    app.logger.error(f"Error getting recommendations: {e}")
+        # --- Get recommendations for the current query (post-graph) ---
+        # These recommendations are based on the original query, could also be based on refined query from agent if needed
+        recommendations_for_response = {}
+        if recommendation_service:
+            try:
+                app.logger.debug(f"Fetching query-specific recommendations for session {session_id}, query: '{current_query}'")
+                recs = recommendation_service.get_recommendations_for_query(
+                    current_query=current_query, # Or potentially a refined query from final_state
+                    k_freelancers=10,
+                    k_articles=3
+                )
+                recommendations_for_response = {
+                    "freelancers": recs.get("freelancers", []),
+                    "articles": recs.get("articles", [])
+                }
+                app.logger.debug(f"Successfully fetched {len(recommendations_for_response['freelancers'])} freelancers, {len(recommendations_for_response['articles'])} articles for query.")
+            except Exception as e:
+                app.logger.error(f"Error getting query-specific recommendations for session {session_id}: {e}", exc_info=True)
+                # Continue without these recommendations if this step fails
             
-            response = {
-                "answer": final_state.get("final_response", "I'm not sure how to respond to that."),
-                "sources": [],  # Default empty sources since we're using the Agent-based approach
-                "agent_outcomes": final_state.get("agent_outcomes", []),  # For frontend visualization
-                "session_id": session_id,
-                "intent": "multi_agent_workflow", # New intent type
-                "query_recommendations": recommendations,  # Add recommendations to the response
-                "api_token_usage": final_state.get("api_token_usage", {}) # Include token usage in response
-            }
-        except Exception as e:
-            error_trace = traceback.format_exc()
-            print(f"\n\nCRITICAL ERROR IN AGENT GRAPH: {e}\n{error_trace}\n\n")
-            return jsonify({"error": f"Agent error: {str(e)}"}), 500
+        response_payload = {
+            "answer": final_state.get("final_response", "I'm not sure how to respond to that."),
+            "sources": final_state.get("sources", []), # Ensure agents populate this if needed, or RAG service does.
+            "agent_outcomes": final_state.get("agent_outcomes", []),
+            "session_id": session_id,
+            "intent": "multi_agent_workflow",
+            "query_recommendations": recommendations_for_response,
+            "api_token_usage": final_state.get("api_token_usage", {})
+        }
         
-        # TODO: Add logging to DB service
+        # TODO: Consider logging successful interaction details to DB service here if needed
+        # e.g., db_service.add_chat_message(session_id=session_id, sender='assistant', message=response_payload['answer'], ...)
         
-        return jsonify(response)
+        return jsonify(response_payload)
 
     except Exception as e:
-        app.logger.error(f"Error invoking the multi-agent graph: {e}")
-        return jsonify({"error": str(e)}), 500
-        # Log a generic error message to chat history for this session
-        if db_service:
-            db_service.add_chat_message(session_id=session_id, sender='assistant', message="I'm sorry, an internal error occurred.", model_used=model + "_error", intent_detected=intent)
-        return jsonify(error_response), 500
+        # This will catch errors from agent_graph.invoke() or subsequent processing like recommendations
+        app.logger.error(
+            f"Unhandled error during /chat processing for session {session_id} after query '{current_query}': {e}",
+            exc_info=True
+        )
+        # Do NOT attempt to log to DB here with potentially unstable `model` or `intent` vars from outer scope.
+        # The primary error is logged above.
+        return jsonify({"error": "An unexpected internal server error occurred while processing your chat request."}), 500
 
 @app.route('/recommendations', methods=['POST'])
 @limiter.limit("30 per minute; 200 per hour") # Specific limits for /recommendations

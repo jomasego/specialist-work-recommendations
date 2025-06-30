@@ -505,14 +505,8 @@ for i, message in enumerate(st.session_state.chat_history):
 
         # Feedback buttons
         if message["role"] == "assistant":
-            feedback_key_suffix = f"_feedback_{i}"
-            cols = main_content.columns(10)
-            if cols[0].button("👍", key=f"positive{feedback_key_suffix}", help="Good response"):
-                handle_feedback(i, "positive")
-            if cols[1].button("👎", key=f"negative{feedback_key_suffix}", help="Bad response"):
-                handle_feedback(i, "negative")
-            # Add feedback buttons for assistant messages (outside of any form)
-            feedback_col1, feedback_col2, spacer = st.columns([1,1,8])
+            # Ensure unique keys for feedback buttons
+            feedback_col1, feedback_col2, _ = st.columns([1, 1, 8]) # Use _ for spacer if not used
             with feedback_col1:
                 st.button("👍", key=f"chat_feedback_positive_{i}", on_click=handle_feedback, args=(i, "positive"))
             with feedback_col2:

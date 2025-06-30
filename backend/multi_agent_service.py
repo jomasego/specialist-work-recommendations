@@ -200,241 +200,196 @@ def research_agent_node(state: AgentState):
                 "api_token_usage": current_token_usage}
 
 # Customer-Facing Agent
-customer_llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash-latest", temperature=0.7)
+customer_llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash-latest", temperature=0.7, convert_system_message_to_human=True)
+customer_prompt_template = ChatPromptTemplate.from_messages([
+    ("system", """You are the Makers Platform AI Assistant. Your goal is to provide helpful, informative, and concise answers to user queries.
+You will be given the user's query, chat history, and research findings (which may include freelancer profiles, articles, and knowledge base excerpts).
+
+Instructions:
+1.  **Synthesize Information**: Combine information from all provided sources (research findings, RAG results) to formulate a comprehensive answer. Do not just list findings; integrate them naturally.
+2.  **Address the Query Directly**: Ensure your response directly addresses the user's question.
+3.  **Freelancer Presentation**: If relevant freelancers are found:
+    *   Mention key details like name, specialization, and rate (if available).
+    *   If many freelancers are found, summarize and mention that more details are in the sidebar.
+    *   If budget criteria were specified and freelancers match, explicitly state this. e.g., "Based on your budget of X, I found Y freelancers."
+4.  **Article Presentation**: If relevant articles are found:
+    *   Briefly mention the article title and a short summary or its relevance.
+    *   e.g., "I also found an article titled 'X' that discusses Y."
+5.  **Knowledge Base Information**: If KB content or RAG answers are available, use them to answer the query. Indicate if the information comes from the platform's knowledge base.
+6.  **Clarity and Conciseness**: Keep your answers clear, to the point, and easy to understand. Avoid jargon where possible.
+7.  **Handling "No Information"**: If no relevant information is found for a query, state that clearly and politely. You can suggest rephrasing or contacting support if appropriate.
+8.  **Sensitive Queries**: If the query is flagged as sensitive (e.g., about platform fees, margins), you should still provide a helpful response based on available KB information. The Manager Agent will review and refine if necessary. Your response should be factual and based on approved information.
+9.  **Budget Queries**: If the query includes budget constraints, address how the findings relate to the budget.
+10. **User-Facing Only**: Your entire response should be ready to be shown directly to the user. Do not include any internal thoughts, meta-commentary, or instructions to other agents.
+11. **Sources**: If your answer is based on specific documents from the knowledge base (provided in `rag_answer_sources`), you can mention this generally, e.g., "This information is based on our platform documentation." Do not list individual source file names unless explicitly part of the content.
+
+Chat History Context:
+{chat_history}
+
+Research Findings:
+Freelancers: {freelancers_summary}
+Articles: {articles_summary}
+Knowledge Base Chunks: {kb_chunks_summary}
+RAG Service Answer (general context): {rag_answer_context}
+
+User Query: {query}
+
+Based on all the above, provide your response to the user:"""),
+    ("human", "{query}") # This will be the user's query again, as per standard LCEL practice for input.
+])
+customer_agent_runnable = customer_prompt_template | customer_llm
 
 def customer_facing_agent_node(state: AgentState):
-    """Generates the final response for the user using structured findings and RAGService."""
+    """Generates the final response for the user using its LLM, structured findings, and RAGService."""
     print("---AGENT: Customer-Facing--- ")
-    response_text = "I encountered an issue processing your request. Please try again."
     outcomes = ["Customer-Facing Agent received the query."]
-    current_token_usage = state['api_token_usage']
+    current_token_usage = state['api_token_usage'].copy() # Work with a copy
     
     query = state.get("query", "")
-    chat_history = state.get("chat_history", [])
-    research_findings = state.get("research_findings", {}) 
+    chat_history_list = state.get("chat_history", [])
+    research_findings = state.get("research_findings", {})
 
+    # Prepare summaries of research findings for the prompt
     freelancers_found = research_findings.get("freelancers", [])
     articles_found = research_findings.get("articles", [])
-    # kb_chunks from research_findings are just strings, not the full RAG output with sources
-    kb_chunks_content_from_research = research_findings.get("kb_chunks", []) 
+    kb_chunks_content_from_research = research_findings.get("kb_chunks", [])
+
+    freelancers_summary_parts = []
+    if freelancers_found:
+        for f in freelancers_found[:5]: # Summary of top 5
+            rate_str = f.get('hourly_rate_usd', 'N/A')
+            if rate_str != 'N/A': rate_str = f"${rate_str}/hr"
+            freelancers_summary_parts.append(f"- {f.get('name', 'N/A')} ({f.get('specialization', 'N/A')}, Rate: {rate_str})")
+    freelancers_summary = "\n".join(freelancers_summary_parts) if freelancers_summary_parts else "No specific freelancers found by initial research."
+
+    articles_summary_parts = []
+    if articles_found:
+        for a in articles_found[:3]: # Summary of top 3
+            articles_summary_parts.append(f"- {a.get('title', 'N/A')} (Source: {a.get('document_name', 'N/A')})")
+    articles_summary = "\n".join(articles_summary_parts) if articles_summary_parts else "No specific articles found by initial research."
+
+    kb_chunks_summary = "\n".join([f"- {chunk[:150]}..." for chunk in kb_chunks_content_from_research[:3]]) if kb_chunks_content_from_research else "No direct KB chunks found by initial research."
 
     outcomes.append(f"Query analysis: User asked '{query}'.")
-    outcomes.append(f"Research findings: {len(freelancers_found)} freelancers, {len(articles_found)} articles, {len(kb_chunks_content_from_research)} KB chunk contents.")
+    outcomes.append(f"Initial research found: {len(freelancers_found)} freelancers, {len(articles_found)} articles, {len(kb_chunks_content_from_research)} KB chunk contents.")
 
+    # --- RAG Call for General Context (if KB chunks exist or query is general) ---
+    rag_answer_context = "No RAG context generated."
+    rag_answer_sources = []
+    # Use RAG if there are KB chunks or if it's not a pure freelancer search without text
+    # This logic can be refined, but for now, let's try to get a RAG answer for most cases.
+    make_rag_call = True # Default to trying a RAG call
+
+    if not kb_chunks_content_from_research and not articles_found and len(freelancers_found) > 0 and not any(kw in query.lower() for kw in ["how", "what", "why", "explain", "tell me about"]):
+        # If only freelancers were found and the query seems very direct for freelancers, maybe skip RAG.
+        # This is a heuristic.
+        # make_rag_call = False # Decided to always make RAG call for now to get potential context.
+        pass
+
+    if rag_service and make_rag_call:
+        try:
+            rag_result_dict = rag_service.answer_query(
+                session_id="customer-agent-context-rag-session",
+                current_query=query,
+                chat_history=chat_history_list,
+                model='gemini-1.5-flash-latest' # Or determine model dynamically
+            )
+            rag_answer_context = rag_result_dict.get("answer", "RAG service did not provide a contextual answer.")
+            rag_call_token_usage = rag_result_dict.get("token_usage")
+            rag_answer_sources = rag_result_dict.get("sources", [])
+            if rag_call_token_usage:
+                current_token_usage = _update_token_usage(current_token_usage, rag_call_token_usage)
+            outcomes.append("RAG service provided contextual information.")
+        except Exception as e:
+            print(f"Error in Customer Agent calling RAGService for context: {e}")
+            rag_answer_context = "There was an issue retrieving contextual information from our knowledge base."
+            outcomes.append(f"Error calling RAGService for context: {str(e)}")
+
+    # --- Determine Escalation and Special Handling Notes for LLM ---
     sensitive_query_terms = ["margin", "commission", "makers' fee", "shakers' fee", "makers fee", "shakers fee", "platform fee", "makers takes", "shakers takes"]
     is_sensitive_query = any(term in query.lower() for term in sensitive_query_terms)
     escalation_topic_value = None
-    rag_call_token_usage = None # To store token usage from RAGService.answer_query
 
     if is_sensitive_query:
         outcomes.append("Sensitive query (e.g., platform margin) identified.")
         escalation_topic_value = "platform_margin"
-        if kb_chunks_content_from_research: # If research found KB content, try RAG
-            try:
-                rag_result_dict = rag_service.answer_query(
-                    session_id="customer-agent-sensitive-rag-session",
-                    current_query=query,
-                    chat_history=chat_history
-                )
-                response_text = rag_result_dict.get("answer", "I am looking into that for you. This type of query might require specific information.")
-                rag_call_token_usage = rag_result_dict.get("token_usage")
-                if rag_result_dict.get("sources"):
-                    response_text += f"\n\nSources: {', '.join([src.get('document_name', 'N/A') for src in rag_result_dict.get('sources')])}"
-                outcomes.append("RAG service provided initial info for sensitive query.")
-            except Exception as e:
-                print(f"Error in Customer Agent calling RAGService for sensitive query: {e}")
-                response_text = "I am looking into that for you. This type of query might require specific information."
-                outcomes.append(f"Error calling RAGService for sensitive query: {str(e)}")
-        elif articles_found:
-            response_text = "I found some general articles that might be related. For specific details on platform fees, this will be clarified shortly by our support team if needed."
-        else:
-            response_text = "I understand you have a question about platform specifics. I'll ensure this is addressed accurately."
+        # Note for LLM is handled by the main prompt's instructions on sensitive queries.
+
+    budget_info = _parse_budget_from_query(query)
+    if budget_info:
+        comp_type, val1, val2 = budget_info
+        budget_details_for_prompt = f"Budget constraint: {comp_type} ${val1}" + (f" to ${val2}" if val2 else "")
+        outcomes.append(f"Budget constraint identified: {budget_details_for_prompt}")
     else:
-        budget_info = _parse_budget_from_query(query)
-        if budget_info:
-            comp_type, val1, val2 = budget_info
-            outcomes.append(f"Budget constraint identified: {comp_type} ${val1}" + (f" to ${val2}" if val2 else ""))
-            matching_freelancers = []
-            if freelancers_found:
-                # freelancers_found from research_findings is a list of freelancer dicts directly
-                # No longer wrapped in rec.get("freelancer", {})
-                for freelancer in freelancers_found:
-                    rate = freelancer.get("hourly_rate_usd")
-                    # The 'freelancer' object here is directly from the freelancer_database.json structure
-                    # It should have keys like 'name', 'specialization', 'hourly_rate_usd'
-                    rate_str = freelancer.get("hourly_rate_usd") # This is usually a string like "80"
-                    try:
-                        rate = float(rate_str)
-                    except (ValueError, TypeError):
-                        # If rate is missing or not a number, skip this freelancer for budget filtering
-                        continue
-                    
-                    if comp_type == "less" and rate < val1: matching_freelancers.append(freelancer)
-                    elif comp_type == "less_equal" and rate <= val1: matching_freelancers.append(freelancer)
-                    elif comp_type == "greater" and rate > val1: matching_freelancers.append(freelancer)
-                    elif comp_type == "greater_equal" and rate >= val1: matching_freelancers.append(freelancer)
-                    elif comp_type == "equal" and rate == val1: matching_freelancers.append(freelancer)
-                    elif comp_type == "range" and val1 <= rate <= val2: matching_freelancers.append(freelancer)
-            
-            # Initialize response_text. If RAG provides a general answer, that will be used as a base.
-            # Otherwise, we start fresh for budget-specific findings.
-            base_rag_answer = ""
-            try:
-                # Attempt to get a RAG answer even if budget is primary focus, for context.
-                rag_result_dict_budget_path = rag_service.answer_query(
-                    session_id="customer-agent-budget-rag-session",
-                    current_query=query, # Use original query for RAG
-                    chat_history=chat_history
-                )
-                base_rag_answer = rag_result_dict_budget_path.get("answer", "")
-                rag_call_token_usage = rag_result_dict_budget_path.get("token_usage") # Capture token usage
-                rag_sources_budget_path = rag_result_dict_budget_path.get("sources")
-                if base_rag_answer and rag_sources_budget_path:
-                    source_doc_names = sorted(list(set([src.get('document_name', 'Unknown Document') for src in rag_sources_budget_path if src.get('document_name')])))
-                    if source_doc_names:
-                        base_rag_answer += "\n\n(This information is based on: " + ", ".join(source_doc_names) + ")"
-                outcomes.append("RAG service provided contextual answer for budget query.")
-            except Exception as e:
-                print(f"Error calling RAGService in budget path: {e}")
-                outcomes.append(f"RAGService call failed in budget path: {str(e)}")
+        budget_details_for_prompt = "No specific budget constraint mentioned by the user."
 
-            response_text = base_rag_answer + "\n\n" if base_rag_answer else ""
+    # --- Prepare Input for Customer-Facing LLM ---
+    chat_history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in chat_history_list])
 
-            if matching_freelancers:
-                budget_criteria_str = f"{comp_type.replace('_', ' ')} ${val1:,.2f}"
-                if val2: budget_criteria_str += f" to ${val2:,.2f}"
-                response_text += f"Based on your budget criteria ({budget_criteria_str}), I found {len(matching_freelancers)} freelancer(s):"
-                
-                for i, freelancer in enumerate(matching_freelancers[:3]): # Show top 3 directly
-                    name = freelancer.get('name', 'N/A')
-                    specialization = freelancer.get('specialization', 'N/A') # Assuming freelancer dict has this
-                    rate = freelancer.get('hourly_rate_usd', 'N/A')
-                    response_text += f"\n- **{name}**: Specializes in {specialization}, Rate: ${rate}/hr"
-                
-                if len(matching_freelancers) > 3:
-                    response_text += "\n(More matching freelancer profiles are in the 'Recommended Talent' sidebar.)"
-                elif len(matching_freelancers) > 0:
-                    response_text += "\n(Full profiles for these freelancers are in the 'Recommended Talent' sidebar.)"
-                outcomes.append(f"Listed {len(matching_freelancers)} freelancers matching budget.")
-            else:
-                response_text += f"I couldn't find any freelancers matching your specified budget ({comp_type.replace('_', ' ')} ${val1}"
-                if val2: response_text += f" to ${val2}"
-                response_text += "). You might want to adjust your budget or criteria."
-                outcomes.append("No freelancers found matching budget criteria.")
-            
-            # Append articles if found, regardless of budget match for freelancers
-            if articles_found:
-                response_text += "\n\nI also found some articles that might be generally helpful:"
-                for i, article in enumerate(articles_found[:2]): # Show top 2
-                    title = article.get('title', 'N/A')
-                    doc_name = article.get('document_name', 'N/A')
-                    preview = article.get('content', '')[:150] + '...' # First 150 chars as preview
-                    response_text += f"\n- **{title}** (Source: {doc_name})\n  *Preview: {preview}*"
-                if len(articles_found) > 2:
-                    response_text += "\nFor more details on these and other articles, check the 'Recommended Resources' in the sidebar."
-                elif len(articles_found) > 0:
-                     response_text += "\nDetails for these articles are in the 'Recommended Resources' sidebar."
-                outcomes.append("Appended general articles to budget response.")
+    llm_input = {
+        "chat_history": chat_history_str,
+        "freelancers_summary": freelancers_summary,
+        "articles_summary": articles_summary,
+        "kb_chunks_summary": kb_chunks_summary,
+        "rag_answer_context": rag_answer_context,
+        "query": query, # Pass original query
+        "budget_details": budget_details_for_prompt # Added for LLM context
+    }
 
-            # If neither freelancers nor a RAG answer, and no articles, provide a fallback.
-            if not matching_freelancers and not base_rag_answer and not articles_found:
-                 response_text = f"I couldn't find any freelancers matching your budget criteria. I also didn't find specific information or articles for your query: '{query}'. You might want to try rephrasing or broadening your search."
-                 outcomes.append("No budget freelancers, RAG answer, or articles found.")
+    response_text = "I encountered an issue generating a response. Please try again."
+    try:
+        print(f"DEBUG: Customer-Facing Agent LLM input: {llm_input}")
+        customer_llm_response_obj = customer_agent_runnable.invoke(llm_input)
 
-        elif any(term in query.lower() for term in ['freelancer', 'specialist', 'expert']):
-            if freelancers_found:
-                response_text = f"I've found {len(freelancers_found)} specialist(s). Check the sidebar for details."
-            else:
-                response_text = f"I couldn't find specialists for '{query}'. Try rephrasing."
-
-        elif kb_chunks_content_from_research:
-            outcomes.append("Relevant KB chunks found by research. Generating interpretive answer using RAG.")
-            try:
-                rag_result_dict = rag_service.answer_query(
-                    session_id="customer-agent-general-rag-session",
-                    current_query=query,
-                    chat_history=chat_history,
-                    model='gemini-1.5-flash-latest' # Or determine model dynamically
-                )
-                response_text = rag_result_dict.get("answer", "I found some relevant information but couldn't generate a summary.")
-                rag_call_token_usage = rag_result_dict.get("token_usage")
-                rag_sources = rag_result_dict.get("sources")
-                if rag_sources:
-                    source_doc_names = sorted(list(set([src.get('document_name', 'Unknown Document') for src in rag_sources if src.get('document_name')])))
-                    if source_doc_names:
-                        response_text += "\n\n(This information is based on: " + ", ".join(source_doc_names) + ")"
-
-                if articles_found:
-                    response_text += "\n\nI also found some articles that might be helpful:"
-                    for i, article in enumerate(articles_found[:2]): # Show top 2
-                        title = article.get('title', 'N/A')
-                        doc_name = article.get('document_name', 'N/A')
-                        preview = article.get('content', '')[:150] + '...' # First 150 chars as preview
-                        response_text += f"\n- **{title}** (Source: {doc_name})\n  *Preview: {preview}*"
-                    if len(articles_found) > 2:
-                        response_text += "\nFor more details on these and other articles, check the 'Recommended Resources' in the sidebar."
-                    elif len(articles_found) > 0:
-                         response_text += "\nDetails for these articles are in the 'Recommended Resources' sidebar."
-
-                if freelancers_found:
-                    response_text += "\n\nRegarding freelancers, I found these individuals who might be a fit:"
-                    for i, freelancer in enumerate(freelancers_found[:3]): # Show top 3 directly
-                        name = freelancer.get('name', 'N/A')
-                        specialization = freelancer.get('specialization', 'N/A')
-                        rate = freelancer.get('rate_usd_hr', 'N/A')
-                        response_text += f"\n- **{name}**: Specializes in {specialization}, Rate: ${rate}/hr (if available)"
-                    if len(freelancers_found) > 3:
-                        response_text += "\nMore freelancer profiles are available in the 'Recommended Talent' section in the sidebar."
-                    elif len(freelancers_found) > 0:
-                        response_text += "\nFull profiles for these freelancers are in the 'Recommended Talent' sidebar."
-
-                outcomes.append("RAG service generated an answer, potentially supplemented with articles and freelancer mentions.")
-            except Exception as e:
-                print(f"Error in Customer Agent calling RAGService for general query: {e}")
-                response_text = "I found some information but had trouble summarizing it for you."
-                outcomes.append(f"Error calling RAGService for general query: {str(e)}")
-                
-        elif articles_found or freelancers_found:
-            response_text = f"Based on your query '{query}', I found the following:"
-            if articles_found:
-                response_text += f"\n\n**Relevant Articles ({len(articles_found)} found):**"
-                for i, article in enumerate(articles_found[:3]): # Show top 3
-                    title = article.get('title', 'N/A')
-                    doc_name = article.get('document_name', 'N/A')
-                    content_snippet = article.get('content', '')[:200] + '...' # First 200 chars
-                    response_text += f"\n- **{title}** (from *{doc_name}*)\n  *{content_snippet}*"
-                if len(articles_found) > 3:
-                    response_text += "\n(More articles in the 'Recommended Resources' sidebar.)"
-                elif len(articles_found) > 0:
-                    response_text += "\n(Full articles in the 'Recommended Resources' sidebar.)"
-            
-            if freelancers_found:
-                response_text += f"\n\n**Potential Freelancers ({len(freelancers_found)} found):**"
-                # Check for budget context from the state if available (e.g., state.get('parsed_budget'))
-                # This part requires knowing how budget is stored in AgentState if parsed earlier
-                # For now, just list them generally
-                for i, freelancer in enumerate(freelancers_found[:3]):
-                    name = freelancer.get('name', 'N/A')
-                    specialization = freelancer.get('specialization', 'N/A')
-                    rate = freelancer.get('rate_usd_hr', 'N/A')
-                    response_text += f"\n- **{name}**: Specializes in {specialization}, Rate: ${rate}/hr (if available)"
-                if len(freelancers_found) > 3:
-                    response_text += "\n(More freelancer profiles in the 'Recommended Talent' sidebar.)"
-                elif len(freelancers_found) > 0:
-                    response_text += "\n(Full profiles in the 'Recommended Talent' sidebar.)"
-            
-            outcomes.append("Provided relevant articles and/or freelancers as primary response.")
+        if hasattr(customer_llm_response_obj, 'content'):
+            response_text = customer_llm_response_obj.content
         else:
-            escalation_topic_value = "general_inquiry_unresolved"
-            response_text = "I couldn't find specific information for your query at the moment. For general inquiries or if you need further assistance, please feel free to contact our support team at support@makers.com. They'll be happy to help!"
-            outcomes.append("No specific KB/article/freelancer info found. Provided general assistance message.")
+            response_text = str(customer_llm_response_obj)
 
-    if rag_call_token_usage:
-        print(f"DEBUG: customer_facing_agent_node received token usage: {rag_call_token_usage}")
-        current_token_usage = _update_token_usage(current_token_usage, rag_call_token_usage)
+        response_text = response_text.strip()
+        outcomes.append("Customer-Facing LLM generated response.")
+
+        # Token and Cost Tracking for customer_llm
+        llm_input_tokens = 0
+        llm_output_tokens = 0
+        llm_cost = 0.0
+
+        if hasattr(customer_llm_response_obj, 'usage_metadata') and customer_llm_response_obj.usage_metadata:
+            # Gemini specific way via ChatGoogleGenerativeAI
+            llm_input_tokens = customer_llm_response_obj.usage_metadata.get('prompt_token_count', 0)
+            llm_output_tokens = customer_llm_response_obj.usage_metadata.get('candidates_token_count', 0)
+        else: # Fallback crude estimate
+            input_prompt_text_for_llm = customer_prompt_template.format(**llm_input)
+            llm_input_tokens = len(input_prompt_text_for_llm) // 4
+            llm_output_tokens = len(response_text) // 4
+            print("Warning: Could not find token usage in customer_llm_response_obj.usage_metadata. Estimating crudely.")
+
+        llm_cost = ((llm_input_tokens / 1000) * GEMINI_FLASH_INPUT_COST_PER_1K_TOKENS) + \
+                     ((llm_output_tokens / 1000) * GEMINI_FLASH_OUTPUT_COST_PER_1K_TOKENS)
+
+        current_token_usage['gemini_input_tokens'] = current_token_usage.get('gemini_input_tokens', 0) + llm_input_tokens
+        current_token_usage['gemini_output_tokens'] = current_token_usage.get('gemini_output_tokens', 0) + llm_output_tokens
+        current_token_usage['total_cost'] = current_token_usage.get('total_cost', 0.0) + llm_cost
+
+        outcomes.append(f"Customer-Facing LLM (Gemini Flash) usage: In={llm_input_tokens}, Out={llm_output_tokens}, Cost=${llm_cost:.6f}")
+
+    except Exception as e:
+        print(f"CRITICAL ERROR in Customer-Facing Agent LLM call: {e}\n{traceback.format_exc()}")
+        response_text = "I had trouble formulating a response based on the information. Could you try rephrasing?"
+        outcomes.append(f"Customer-Facing LLM call failed: {str(e)}")
+
+
+    # Fallback if LLM somehow produced an empty response
+    if not response_text.strip():
+        if freelancers_found or articles_found or kb_chunks_content_from_research:
+            response_text = "I found some information that might be relevant. Please check the recommendations or try rephrasing your question if this isn't what you were looking for."
+        else:
+            response_text = "I couldn't find specific information for your query at the moment. For general inquiries or if you need further assistance, please feel free to contact our support team at support@makers.com."
+            escalation_topic_value = "general_inquiry_unresolved" if not escalation_topic_value else escalation_topic_value
+
 
     outcomes.append("Response generation complete.")
-    print(f"Customer-Facing Agent Response: {response_text}")
+    print(f"Customer-Facing Agent Final Proposed Response: {response_text}")
     return {"final_response": response_text, "agent_outcomes": outcomes, "escalation_topic": escalation_topic_value, "api_token_usage": current_token_usage}
 
 
