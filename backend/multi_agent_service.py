@@ -24,6 +24,9 @@ from .recommendation_service import RecommendationService
 load_dotenv()
 
 # --- Pricing Constants (mirrored from rag_service.py for direct use here if needed) ---
+# NOTE: GEMINI_FLASH costs are used as placeholders for gemma3n:e2b and gemma3n:e4b models
+# accessed via Google API, as their specific pricing under these custom tags is assumed to be similar
+# or is otherwise unknown. Update if specific pricing becomes available.
 GEMINI_FLASH_INPUT_COST_PER_1K_TOKENS = 0.00035
 GEMINI_FLASH_OUTPUT_COST_PER_1K_TOKENS = 0.00105
 EMBEDDING_COST_PER_1K_TOKENS = 0.0001
@@ -31,11 +34,11 @@ EMBEDDING_COST_PER_1K_TOKENS = 0.0001
 GROQ_LLAMA3_70B_INPUT_COST_PER_1K_TOKENS = 0.00059 
 GROQ_LLAMA3_70B_OUTPUT_COST_PER_1K_TOKENS = 0.00079
 # Groq Qwen 32b pricing (example, adjust if different)
-GROQ_QWEN_32B_INPUT_COST_PER_1K_TOKENS = 0.0002 
-GROQ_QWEN_32B_OUTPUT_COST_PER_1K_TOKENS = 0.0008
+# GROQ_QWEN_32B_INPUT_COST_PER_1K_TOKENS = 0.0002 # Not currently used
+# GROQ_QWEN_32B_OUTPUT_COST_PER_1K_TOKENS = 0.0008 # Not currently used
 # Gemini 1.5 Pro pricing (example, verify if switching back)
-GEMINI_1_5_PRO_INPUT_COST_PER_1K_TOKENS = 0.0035
-GEMINI_1_5_PRO_OUTPUT_COST_PER_1K_TOKENS = 0.0105
+# GEMINI_1_5_PRO_INPUT_COST_PER_1K_TOKENS = 0.0035 # Not currently used
+# GEMINI_1_5_PRO_OUTPUT_COST_PER_1K_TOKENS = 0.0105 # Not currently used
 
 
 # --- Agent State ---
@@ -154,11 +157,16 @@ def _parse_budget_from_query(query: str) -> Optional[Tuple[str, float, Optional[
 # --- Agent Logics ---
 
 # Research Agent
-# Note: The research_llm itself (llama3-70b) is not directly used in the bypass logic.
-# If it were, its token usage would also need to be captured via Langchain callbacks or similar.
-research_llm = ChatGroq(temperature=0, model_name="llama3-70b-8192")
+# The research_llm is defined here but currently not actively used by research_agent_node's logic,
+# which directly calls tools. If it were to be used (e.g., for tool selection or processing),
+# its token usage would also need to be captured.
+research_llm = ChatGoogleGenerativeAI(
+    model_name="gemma3n:e2b",  # Changed to specified Gemma model
+    temperature=0,
+    convert_system_message_to_human=True # Good practice for Google's client
+)
 research_tools = [rag_and_freelancer_search_tool, web_search_tool]
-# research_agent_runnable = research_llm.bind_tools(research_tools) # Not used in bypass
+# research_agent_runnable = research_llm.bind_tools(research_tools) # Example if LLM were to select tools
 
 def research_agent_node(state: AgentState):
     print("---AGENT: Research--- ")
@@ -200,7 +208,7 @@ def research_agent_node(state: AgentState):
                 "api_token_usage": current_token_usage}
 
 # Customer-Facing Agent
-customer_llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash-latest", temperature=0.7, convert_system_message_to_human=True)
+customer_llm = ChatGoogleGenerativeAI(model="gemma3n:e2b", temperature=0.7, convert_system_message_to_human=True) # Changed model name
 customer_prompt_template = ChatPromptTemplate.from_messages([
     ("system", """You are the Makers Platform AI Assistant. Your goal is to provide helpful, informative, and concise answers to user queries.
 You will be given the user's query, chat history, and research findings (which may include freelancer profiles, articles, and knowledge base excerpts).
@@ -371,7 +379,9 @@ def customer_facing_agent_node(state: AgentState):
         current_token_usage['gemini_output_tokens'] = current_token_usage.get('gemini_output_tokens', 0) + llm_output_tokens
         current_token_usage['total_cost'] = current_token_usage.get('total_cost', 0.0) + llm_cost
 
-        outcomes.append(f"Customer-Facing LLM (Gemini Flash) usage: In={llm_input_tokens}, Out={llm_output_tokens}, Cost=${llm_cost:.6f}")
+        # Updated log to reflect the new model name potentially being a Gemma model
+        model_name_for_log = customer_llm.model_name # Get actual model name used
+        outcomes.append(f"Customer-Facing LLM ({model_name_for_log}) usage: In={llm_input_tokens}, Out={llm_output_tokens}, Cost=${llm_cost:.6f}")
 
     except Exception as e:
         print(f"CRITICAL ERROR in Customer-Facing Agent LLM call: {e}\n{traceback.format_exc()}")
@@ -394,11 +404,11 @@ def customer_facing_agent_node(state: AgentState):
 
 
 # Manager Agent
-# Note: If manager_llm (qwen) is used, its token usage would also need to be captured.
-# For now, it's providing canned responses, so no LLM call is made in this version.
-# Manager Agent (Singleton)
-# Upgraded to Gemini 1.5 Pro for more advanced reasoning and response direction.
-manager_llm = ChatGroq(temperature=0.3, model_name="llama3-70b-8192")  # Reverted to Groq Llama3-70b
+manager_llm = ChatGoogleGenerativeAI(
+    model_name="gemma3n:e4b",  # Changed to specified Gemma model
+    temperature=0.3,
+    convert_system_message_to_human=True # Important for system prompts with Google's GenerativeAI client
+)
 manager_prompt_template = ChatPromptTemplate.from_messages([
     ("system", "You are a senior manager AI overseeing a customer interaction. Your primary role is to ensure the quality, accuracy, and appropriateness of the final response. Review the query, chat history, research findings, and the Customer-Facing Agent's proposed response. \nKey Responsibilities:\n1. **Sensitive Topics**: If the query involves sensitive topics (e.g., company profit margins, confidential financial details, direct negative comparisons with named competitors), you MUST override or heavily guide the response. For sensitive financial queries, state that such details are confidential. For competitor comparisons, provide a neutral, factual statement about Makers' platform features without disparaging competitors. If asked for information not in the knowledge base (e.g. 'who are your investors?'), state that this information is not publicly available through this channel.\n2. **Accuracy & Completeness**: If the Customer Agent's response is inaccurate, incomplete, or misses the nuance of the query, provide a refined answer or clear, actionable instructions for the Customer Agent to reformulate its response. Ensure all relevant information (freelancers, articles, KB sources) is presented clearly if available.\n3. **Fallback & Escalation**: If the Customer Agent cannot find any information and the query is reasonable, provide fallback guidance (e.g., 'For specific account issues, please contact support@makers.com.') or suggest how the user might rephrase their query for better results. If the query is truly unanswerable or outside the platform's scope, state that clearly and politely.\n4. **Qualitative Comparisons**: For questions like 'which of these freelancers is best?', guide the Customer Agent to provide a balanced comparison based on available data (skills, experience, rate if relevant) rather than making a definitive judgment, and encourage the user to review full profiles.\n5. **Clarity and Conciseness**: Ensure the final response is clear, concise, and directly addresses the user's query.\n6. **Output Format**: Your response should *only* contain the text intended for the end-user. Do NOT include any prefatory phrases (e.g., 'I will now provide a refined answer:'), meta-commentary, or concluding summaries about your own response. Such internal notes should be part of your reasoning process but not in the final output text."),
     ("human", "User Query: {query}\nFull Chat History:\n{chat_history}\nRelevant Research Findings (from RAG, tools, etc.):\n{research_findings}\nCustomer Agent's Proposed Response (if any):\n{proposed_response}\nPrevious Agent Outcomes/Actions:\n{agent_outcomes}\n\nYour refined answer or direct instructions to the Customer Agent:")
@@ -427,52 +437,46 @@ def manager_agent_node(state: AgentState):
     
     try:
         # Invoke the manager LLM
-        # The response object from ChatGoogleGenerativeAI typically includes usage_metadata
         manager_response_obj = manager_agent_runnable.invoke(manager_input)
         
         if hasattr(manager_response_obj, 'content'):
             final_response = manager_response_obj.content
         else:
-            # Fallback if the response object structure is different (e.g. if it's just a string)
             final_response = str(manager_response_obj)
 
         # Clean the response from the manager agent
         final_response = final_response.strip()
-        # Regex to remove everything up to and including the first colon on a line, plus any following whitespace and optional newline.
-        prefix_pattern = r'^.*?:\s*\n?'
+        prefix_pattern = r'^.*?:\s*\n?' # Regex to remove potential "Agent: " prefixes
         final_response = re.sub(prefix_pattern, '', final_response, flags=re.IGNORECASE).strip()
         
         input_tokens = 0
         output_tokens = 0
         cost = 0.0
 
-        if hasattr(manager_response_obj, 'response_metadata') and 'token_usage' in manager_response_obj.response_metadata:
-            # LangChain's standard way of returning token usage for some models
-            usage = manager_response_obj.response_metadata['token_usage']
-            input_tokens = usage.get('prompt_token_count', 0) 
-            output_tokens = usage.get('candidates_token_count', 0)
-        elif hasattr(manager_response_obj, 'usage_metadata'):
-            # Gemini specific way via ChatGoogleGenerativeAI
-            input_tokens = manager_response_obj.usage_metadata.get('prompt_token_count',0)
-            output_tokens = manager_response_obj.usage_metadata.get('candidates_token_count',0)
-        else:
-            # Fallback: Estimate based on text length (crude)
-            print("Warning: Could not find token usage in manager_response_obj. Estimating crudely.")
+        # Token and Cost calculation for Google models (e.g., Gemini, Gemma via Google API)
+        if hasattr(manager_response_obj, 'usage_metadata') and manager_response_obj.usage_metadata:
+            input_tokens = manager_response_obj.usage_metadata.get('prompt_token_count', 0)
+            output_tokens = manager_response_obj.usage_metadata.get('candidates_token_count', 0)
+        else: # Fallback crude estimate if usage_metadata is not available
+            print("Warning: Could not find token usage in manager_response_obj.usage_metadata for Gemma model. Estimating crudely.")
             input_text_for_llm = manager_prompt_template.format(**manager_input)
             input_tokens = len(input_text_for_llm) // 4 
             output_tokens = len(final_response) // 4
-
-        cost = ((input_tokens / 1000) * GROQ_LLAMA3_70B_INPUT_COST_PER_1K_TOKENS) + \
-               ((output_tokens / 1000) * GROQ_LLAMA3_70B_OUTPUT_COST_PER_1K_TOKENS)
         
-        print(f"DEBUG: Manager LLM (Groq Llama3-70b) usage: Input Tokens: {input_tokens}, Output Tokens: {output_tokens}, Cost: ${cost:.6f}")
+        # Using GEMINI_FLASH costs as placeholders for gemma3n:e4b via Google API
+        # TODO: Update with actual Gemma model costs via Google API if different and known.
+        cost = ((input_tokens / 1000) * GEMINI_FLASH_INPUT_COST_PER_1K_TOKENS) + \
+               ((output_tokens / 1000) * GEMINI_FLASH_OUTPUT_COST_PER_1K_TOKENS)
 
-        current_token_usage['groq_input_tokens'] = current_token_usage.get('groq_input_tokens', 0) + input_tokens
-        current_token_usage['groq_output_tokens'] = current_token_usage.get('groq_output_tokens', 0) + output_tokens
+        model_name_for_log = "Gemma (gemma3n:e4b via Google API)"
+        print(f"DEBUG: Manager LLM ({model_name_for_log}) usage: Input Tokens: {input_tokens}, Output Tokens: {output_tokens}, Cost: ${cost:.6f}")
+
+        current_token_usage['gemini_input_tokens'] = current_token_usage.get('gemini_input_tokens', 0) + input_tokens
+        current_token_usage['gemini_output_tokens'] = current_token_usage.get('gemini_output_tokens', 0) + output_tokens
         current_token_usage['total_cost'] = current_token_usage.get('total_cost', 0.0) + cost
         
-        agent_outcomes = previous_agent_outcomes + [f"Manager Agent (Groq Llama3-70b) reviewed and provided response. Cost: ${cost:.6f}"]
-        print(f"Manager Agent (Groq Llama3-70b) Output: {final_response}")
+        agent_outcomes = previous_agent_outcomes + [f"Manager Agent ({model_name_for_log}) reviewed and provided response. Cost: ${cost:.6f}"]
+        print(f"Manager Agent ({model_name_for_log}) Output: {final_response}")
 
     except Exception as e:
         print(f"CRITICAL ERROR in Manager Agent: {e}\n{traceback.format_exc()}")
